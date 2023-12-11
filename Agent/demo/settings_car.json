@@ -1,0 +1,40 @@
+{
+  "SettingsVersion": 1.2,
+  "SimMode": "Car",
+  "ViewMode":"",
+  "ClockSpeed": 1,
+  "OriginGeopoint": {
+    "Latitude": 40.05405620434274,
+    "Longitude": 116.16872381923261, 
+    "Altitude": 150
+  },
+  "Vehicles": {
+    "Car0": {
+      "VehicleType": "PhysXCar",
+      "DefaultVehicleState": "",
+      "AutoCreate": true,
+      "IsFpvVehicle": true,
+      "EnableCollisionPassthrogh": false,
+      "EnableCollisions": true,
+      "AllowAPIAlways": true,
+      "RemoteControlID":-1,
+      "X": 30, "Y": 0, "Z": 0,
+      "Pitch": 0, "Roll": 0, "Yaw": 0,
+      "Sensors": {    "Lidar1": {
+        "SensorType": 6,
+        "Enabled" : true,
+        "DrawDebugPoints":false,
+        "PointsPerSecond": 10000
+      },
+      "Imu": {
+        "SensorType": 2,
+        "Enabled" : true
+      },
+      "Gps": {
+          "SensorType": 3,
+          "Enabled" : true
+        }      
+      }
+    }
+  }
+}

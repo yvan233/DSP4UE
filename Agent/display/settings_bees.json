@@ -1,0 +1,64 @@
+{
+	"SettingsVersion": 1.2,
+	"ViewMode":"SpringArmChase",
+	"ClockType": "ScalableClock",
+	"ClockSpeed": 1,
+	"OriginGeopoint": {
+	  "Latitude": 40.05405620434274,
+	  "Longitude": 116.16872381923261, 
+	  "Altitude": 150
+	},
+	"PawnPaths": {
+		"Bee":{"PawnBP":"Class'/Game/newFly/BP_FlyingPawn.BP_FlyingPawn_C'"}
+		},
+	"Vehicles": {
+	  "Uav0": {
+		"VehicleType": "SimpleFlight",
+		"PawnPath": "Bee",
+		"X": -28, "Y": -45, "Z": -22,
+		"Yaw": 0
+	  },
+	  "Uav1": {
+		"VehicleType": "SimpleFlight",
+		"PawnPath": "Bee",
+		"X": -28, "Y": -44.75, "Z": -22,
+		"Yaw": 0
+	  },
+	  "Uav2": {
+		"VehicleType": "SimpleFlight",
+		"PawnPath": "Bee",
+		"X": -28, "Y": -44.5, "Z": -22,
+		"Yaw": 0
+	  },
+	  "Uav3": {
+		"VehicleType": "SimpleFlight",
+		"PawnPath": "Bee",
+		"X": -28, "Y": -44.25, "Z": -22,
+		"Yaw": 0
+	  },
+	  "Uav4": {
+		"VehicleType": "SimpleFlight",
+		"PawnPath": "Bee",
+		"X": -28.25, "Y": -45, "Z": -22,
+		"Yaw": 0
+	  },
+	  "Uav5": {
+		"VehicleType": "SimpleFlight",
+		"PawnPath": "Bee",
+		"X": -28.25, "Y": -44.75, "Z": -22,
+		"Yaw": 0
+	  },
+	  "Uav6": {
+		"VehicleType": "SimpleFlight",
+		"PawnPath": "Bee",
+		"X": -28.25, "Y": -44.5, "Z": -22,
+		"Yaw": 0
+	  },
+	  "Uav7": {
+		"VehicleType": "SimpleFlight",
+		"PawnPath": "Bee",
+		"X": -28.25, "Y": -44.25, "Z": -22,
+		"Yaw": 0
+	  }
+	}
+}
