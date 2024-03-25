@@ -67,6 +67,7 @@ class AirSimUavAgent():
         State = self.uav.getMultirotorState(self.name)
         kinematics = State.kinematics_estimated
         state = {
+            "id":self.name,
             "timestamp":str(State.timestamp),
             "position":[round(ele,DIG)+ self.origin_pos[i] for i,ele in enumerate(kinematics.position.to_numpy_array().tolist())],
             "orientation":[round(i,DIG) for i in airsim.to_eularian_angles(kinematics.orientation)],
@@ -208,7 +209,7 @@ if __name__ == '__main__':
         (116.16878256197862, 40.05405523280805, 152.73081970214844),
         (116.16872517033799, 40.05405619907175, 152.8238983154297)]
 
-    uav = AirSimUavAgent(origin_geopoint, ip = UE_ip, vehicle_name= "Uav0", origin_pos=origin_pos)
+    uav = AirSimUavAgent(origin_geopoint, ip = UE_ip, vehicle_name= "Uav1", origin_pos=origin_pos)
 
     print(uav.get_state())
     print(uav.get_collision())

@@ -1,0 +1,38 @@
+{
+   "CommRange": 100.0,
+   "Node":[
+      {
+         "ID": "1",
+         "Location":{
+            "Lat": 40.05405,
+            "Lot": 116.16872, 
+            "Alt": 8
+            },
+         "Port": [10000], 
+         "wired_nbrID": [], 
+         "nbrDirection": [],
+         "data": []
+      }, 
+      {
+         "ID": "2",
+         "Port": [10001], 
+         "nbrID": [], 
+         "nbrDirection": [],
+         "data": []
+      }, 
+      {
+         "ID": "3",
+         "Port": [10002], 
+         "nbrID": [], 
+         "nbrDirection": [],
+         "data": []
+      }, 
+      {
+         "ID": "4",
+         "Port": [10003], 
+         "nbrID": [], 
+         "nbrDirection": [],
+         "data": []
+      }
+   ]
+}
