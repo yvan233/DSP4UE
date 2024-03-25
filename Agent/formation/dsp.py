@@ -6,7 +6,7 @@ from DASP.module import Node,Moniter
 from DASP.control import ControlMixin
 
 nodeNum = 6  # Number of nodes
-startNode = "1" # Starting node ID
+startNode = "1" # Starting node IDm
 nodelist = [] # List of node processes
 controlMixin = ControlMixin("Pc") # Collection of control functions
 
@@ -20,7 +20,7 @@ for i in range(nodeNum):
     nodelist.append(node)
 
 time.sleep(2)
-DappName = "LF_base"
+DappName = "LF_avoid"
 print("start task: "+DappName)
 controlMixin.startTask(DappName,startNode)
 
