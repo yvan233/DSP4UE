@@ -29,11 +29,9 @@ def follower_control(uav, leader_state, follower_state, target_leader_state, tar
     if v_mag > v_max:
         vx = vx / v_mag * v_max
         vy = vy / v_mag * v_max
-        vz = vz / v_mag * v_max    
-    
+        vz = vz / v_mag * v_max        
     return vx, vy, vz
 
-# uav_state = {'Uav0': {'id': 'Uav0', 'timestamp': '1711359246873540200', 'position': [0.0, 0.0, -4.621467], 'orientation': [-0.0, 0.0, 1e-06], 'linear_velocity': [-2e-06, -1e-06, 0.008597], 'linear_acceleration': [3e-06, 4e-06, -0.076122], 'angular_velocity': [-0.0, 0.0, 0.0], 'angular_acceleration': [-0.0, -0.0, 0.0]}, 'Uav1': {'id': 'Uav1', 'timestamp': '1711359246670878000', 'position': [0.0, 3.000001, -4.627668], 'orientation': [-0.0, -0.0, -1.2e-05], 'linear_velocity': [0.0, 0.0, 0.031104], 'linear_acceleration': [0.0, -0.0, -0.133497], 'angular_velocity': [-0.0, -0.0, 0.0], 'angular_acceleration': [-1.3e-05, -4e-06, -1e-06]}, 'Uav2': {'id': 'Uav2', 'timestamp': '1711359246670889000', 'position': [0.0, 5.999999, 1.5029240000000001], 'orientation': [0.0, 0.0, -6e-06], 'linear_velocity': [0.0, 0.0, 0.0], 'linear_acceleration': [0.0, 0.0, 0.0], 'angular_velocity': [0.0, 0.0, 0.0], 'angular_acceleration': [0.0, 0.0, 0.0]}, 'Uav3': {'id': 'Uav3', 'timestamp': '1711359246671003200', 'position': [-3.0, 2e-06, -4.62533], 'orientation': [0.0, 0.0, -1.8e-05], 'linear_velocity': [0.0, 0.0, 0.031133], 'linear_acceleration': [-0.0, 0.0, -0.133573], 'angular_velocity': [0.0, 0.0, 0.0], 'angular_acceleration': [-0.0, 0.0, -0.0]}, 'Uav4': {'id': 'Uav4', 'timestamp': '1711359246670918700', 'position': [-3.000001, 2.999999, -9.234745], 'orientation': [0.0, 0.0, -7e-06], 'linear_velocity': [-0.0, -0.0, 0.031201], 'linear_acceleration': [-0.0, 0.0, -0.133882], 'angular_velocity': [-0.0, -0.0, 0.0], 'angular_acceleration': [-9e-06, -7e-06, -0.0]}, 'Uav5': {'id': 'Uav5', 'timestamp': '1711359246670942300', 'position': [-2.999999, 6.0, 1.50455], 'orientation': [0.0, 0.0, 1e-06], 'linear_velocity': [0.0, 0.0, 0.0], 'linear_acceleration': [0.0, 0.0, 0.0], 'angular_velocity': [0.0, 0.0, 0.0], 'angular_acceleration': [0.0, 0.0, 0.0]}}
 def avoid_control(uav_state):
     aid_vec1 = [1, 0, 0]
     aid_vec2 = [0, 1, 0]
@@ -78,6 +76,7 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
         # 速度控制，会有静差
         # uav.move_by_velocity(1, 0, 0, duration = 100, yaw_mode=airsim.YawMode(True, 0))
         while True:
+            last_time = time.time()
             state = uav.get_state()
             nbrData.insert(0,state)
             # 获取所有无人机的状态
@@ -89,7 +88,10 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
             nbrMessage = self.transmitData(nbrDirection,[sendmessage for _ in range(len(nbrDirection))])  
             nbrDirection, nbrData = nbrMessage               
             # uav.move_to_position(0, 0, -3, velocity=1)
-            time.sleep(1/Rate)
+            period = time.time() - last_time
+            # 控制频率
+            if period < 1/Rate:
+                time.sleep(1/Rate - period) 
 
     else:
         print_iter = 0
