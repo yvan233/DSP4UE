@@ -20,7 +20,7 @@ for i in range(nodeNum):
     nodelist.append(node)
 
 time.sleep(2)
-DappName = "LF_avoid"
+DappName = "LF_assignment"
 print("start task: "+DappName)
 controlMixin.startTask(DappName,startNode)
 

@@ -1,9 +1,12 @@
-# import需求模块
+# 还无法工作，因为拓扑定死了，leader确定，无法进行自适应
+
 import time
 from DASP.module import Task
 from Agent.AirSimUavAgent import AirSimUavAgent
+from scipy.optimize import linear_sum_assignment
 import airsim
 import numpy as np
+
 # 用户自定义函数区
 Rate = 10
 UE_ip = "127.0.0.1"
@@ -14,14 +17,14 @@ def connect_airsim(name, origin_pos):
     uav = AirSimUavAgent(origin_geopoint, ip = UE_ip, vehicle_name= name, origin_pos=origin_pos)
     return uav
 
-def follower_control(uav, leader_state, follower_state, target_leader_state, target_follower_state, avoid_vel):
+def follower_control(leader_state, follower_state, target_leader_state, target_follower_state, avoid_vel):
     Kp = 1.0
     Kp_avoid = 3.0 #避障系数
     v_max = 2.0 #最大速度
 
     vx = Kp*(leader_state['position'][0] - follower_state['position'][0] - target_leader_state[0] + target_follower_state[0])
-    vy = Kp*(leader_state['position'][1] - follower_state['position'][1] - target_leader_state[1] + target_follower_state[1])
-    vz = Kp*(leader_state['position'][2] - follower_state['position'][2] - target_leader_state[2] + target_follower_state[2])
+    vy = Kp*(leader_state['position'][1] - follower_state['position'][1] - target_leader_state[0] + target_follower_state[0])
+    vz = Kp*(leader_state['position'][2] - follower_state['position'][2] - target_leader_state[0] + target_follower_state[0])
     vx += Kp_avoid * avoid_vel[0]
     vy += Kp_avoid * avoid_vel[1]
     vz += Kp_avoid * avoid_vel[2]
@@ -59,6 +62,15 @@ def avoid_control(uav_state):
     return avoid_vel_dict
     # pass
 
+def hungarian_algorithm(origin_formation, target_formation):
+    # 计算两个队形的距离矩阵
+    adj_matrix = np.linalg.norm(np.array(origin_formation)[:, None] - np.array(target_formation), axis=2)
+    row_index, col_index = linear_sum_assignment(adj_matrix)
+    cost_sum = adj_matrix[row_index, col_index].sum()
+    # new_formation = np.array(target_formation)[col_ind]
+    return col_index
+
+
 # 定义算法主函数taskFunction(self,id,nbrDirection,datalist)
 # 四个形参分别为节点类，节点ID，节点邻居对应的方向以及初始化时键入的数据
 def taskFunction(self:Task, id, nbrDirection, datalist):
@@ -68,11 +80,16 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
     uav = connect_airsim(name, formation["origin"][uavid])
     uav.take_off(waited = True)
 
-
     state = uav.get_state()
     nbrMessage = self.transmitData(nbrDirection,[state for _ in range(len(nbrDirection))])  
     nbrDirection, nbrData = nbrMessage 
-    if uavid == 0:
+
+    # 根据队形生成leader
+    origin_formation = formation["origin"]
+    target_formation = formation["diamond"]
+    target_formation_index = hungarian_algorithm(origin_formation, target_formation)
+    if target_formation_index[uavid] == 0:
+    # if uavid == 0:
         # 速度控制，会有静差
         # uav.move_by_velocity(1, 0, 0, duration = 100, yaw_mode=airsim.YawMode(True, 0))
         while True:
@@ -95,21 +112,21 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
 
     else:
         print_iter = 0
-        leader_id = int(self.leader)-1
-        target_formation = formation["diamond"]
-        target_leader_state = target_formation[leader_id]
-        target_follower_state = target_formation[uavid]
+        target_leader_state = target_formation[0]
+        target_follower_state = target_formation[target_formation_index[uavid]]
+        self.sendDatatoGUI(target_follower_state)
         while True:
             state = uav.get_state()
             nbrMessage = self.transmitData(nbrDirection,[state for _ in range(len(nbrDirection))])  
             nbrDirection, nbrData = nbrMessage  
+            # leader_id = int(self.leader)-1
             # 取leader的数据
             leader_state = nbrData[0][0]
             avoid_vel_dict = nbrData[0][1]
             avoid_vel = avoid_vel_dict[name]
             follower_state = state
             # 计算偏移量
-            vx, vy, vz = follower_control(uav, leader_state, follower_state, target_leader_state, target_follower_state, avoid_vel)
+            vx, vy, vz = follower_control(leader_state, follower_state, target_leader_state, target_follower_state, avoid_vel)
             print_iter += 1
             if print_iter % 10 == 0:
                 print_iter = 0

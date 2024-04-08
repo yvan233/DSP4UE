@@ -2,8 +2,11 @@
 import time
 from DASP.module import Task
 from Agent.AirSimUavAgent import AirSimUavAgent
+from scipy.optimize import linear_sum_assignment
+from Dapp.LF_assignment.formation_dict import formation_dict_9
 import airsim
 import numpy as np
+
 # 用户自定义函数区
 Rate = 10
 UE_ip = "127.0.0.1"
@@ -14,7 +17,7 @@ def connect_airsim(name, origin_pos):
     uav = AirSimUavAgent(origin_geopoint, ip = UE_ip, vehicle_name= name, origin_pos=origin_pos)
     return uav
 
-def follower_control(uav, leader_state, follower_state, target_leader_state, target_follower_state, avoid_vel):
+def follower_control(leader_state, follower_state, target_leader_state, target_follower_state, avoid_vel):
     Kp = 1.0
     Kp_avoid = 3.0 #避障系数
     v_max = 2.0 #最大速度
@@ -35,7 +38,7 @@ def follower_control(uav, leader_state, follower_state, target_leader_state, tar
 def avoid_control(uav_state):
     aid_vec1 = [1, 0, 0]
     aid_vec2 = [0, 1, 0]
-    avoid_radius = 3 # 避障半径
+    avoid_radius = 2 # 避障半径
     avoid_vel_dict = {id: np.array([0.0, 0.0, 0.0]) for id in uav_state}  # 初始化避障控制量
     #枚举所有无人机
     for i,id in enumerate(uav_state):
@@ -59,19 +62,32 @@ def avoid_control(uav_state):
     return avoid_vel_dict
     # pass
 
+def hungarian_algorithm(origin_formation, target_formation):
+    # 计算两个队形的距离矩阵
+    origin_formation = np.array(origin_formation)
+    origin_formation = (origin_formation - origin_formation[0, :])[1:]
+    target_formation = np.array(target_formation)
+    target_formation = (target_formation - target_formation[0, :])[1:]
+    adj_matrix = np.linalg.norm(origin_formation[:, None] - target_formation, axis=2)
+    row_index, col_index = linear_sum_assignment(adj_matrix)
+    cost_sum = adj_matrix[row_index, col_index].sum()
+    # new_formation = np.array(target_formation)[col_ind]
+    return col_index + 1
+
+
 # 定义算法主函数taskFunction(self,id,nbrDirection,datalist)
 # 四个形参分别为节点类，节点ID，节点邻居对应的方向以及初始化时键入的数据
 def taskFunction(self:Task, id, nbrDirection, datalist):
     uavid = int(id)-1
     name = f'Uav{uavid}'
-    formation = datalist[0]
+    formation = formation_dict_9
     uav = connect_airsim(name, formation["origin"][uavid])
     uav.take_off(waited = True)
-
 
     state = uav.get_state()
     nbrMessage = self.transmitData(nbrDirection,[state for _ in range(len(nbrDirection))])  
     nbrDirection, nbrData = nbrMessage 
+
     if uavid == 0:
         # 速度控制，会有静差
         # uav.move_by_velocity(1, 0, 0, duration = 100, yaw_mode=airsim.YawMode(True, 0))
@@ -95,27 +111,30 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
 
     else:
         print_iter = 0
+        origin_formation = formation["origin"]
+        target_formation = formation["triangle"]
+        target_formation_index = hungarian_algorithm(origin_formation, target_formation)
         leader_id = int(self.leader)-1
-        target_formation = formation["diamond"]
         target_leader_state = target_formation[leader_id]
-        target_follower_state = target_formation[uavid]
+        target_follower_state = target_formation[target_formation_index[uavid-1]]  #这里默认了第一个是leader,修正下标
+        self.sendDatatoGUI(target_follower_state)
         while True:
             state = uav.get_state()
             nbrMessage = self.transmitData(nbrDirection,[state for _ in range(len(nbrDirection))])  
             nbrDirection, nbrData = nbrMessage  
+            # 
             # 取leader的数据
             leader_state = nbrData[0][0]
             avoid_vel_dict = nbrData[0][1]
             avoid_vel = avoid_vel_dict[name]
             follower_state = state
             # 计算偏移量
-            vx, vy, vz = follower_control(uav, leader_state, follower_state, target_leader_state, target_follower_state, avoid_vel)
+            vx, vy, vz = follower_control(leader_state, follower_state, target_leader_state, target_follower_state, avoid_vel)
             print_iter += 1
             if print_iter % 10 == 0:
                 print_iter = 0
                 self.sendDatatoGUI([avoid_vel,[vx, vy, vz]])
             uav.move_by_velocity(vx, vy, vz, duration = 1, yaw_mode=airsim.YawMode(True, 0))
-            time.sleep(1/Rate)
 
     self.sendDatatoGUI({name:uav.get_state()})
     return 0
