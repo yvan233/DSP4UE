@@ -23,9 +23,10 @@ cost_matrix = np.linalg.norm(origin_formation[:, None] - target_formation, axis=
 row_ind, col_ind = hungarian_algorithm(cost_matrix)
 print(row_ind, col_ind)
 print(cost_matrix[row_ind, col_ind].sum())
+print(cost_matrix[row_ind, col_ind].max())
 # 按照col_ind的顺序排列
 new_formation = np.array(target_formation)[col_ind]
 print(new_formation)
 
-col_ind = col_ind + 1
-print(col_ind)
+# col_ind = col_ind + 1
+# print(col_ind)

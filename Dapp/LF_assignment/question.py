@@ -2,6 +2,7 @@
 import time
 from DASP.module import Task
 from Agent.AirSimUavAgent import AirSimUavAgent
+import pulp as pl
 from scipy.optimize import linear_sum_assignment
 from Dapp.LF_assignment.formation_dict import formation_dict_9
 import airsim
@@ -62,17 +63,52 @@ def avoid_control(uav_state):
     return avoid_vel_dict
     # pass
 
-def hungarian_algorithm(origin_formation, target_formation):
-    # 计算两个队形的距离矩阵
+def get_cost_matrix(origin_formation, target_formation):
     origin_formation = np.array(origin_formation)
     origin_formation = (origin_formation - origin_formation[0, :])[1:]
     target_formation = np.array(target_formation)
     target_formation = (target_formation - target_formation[0, :])[1:]
-    adj_matrix = np.linalg.norm(origin_formation[:, None] - target_formation, axis=2)
+    cost_matrix = np.linalg.norm(origin_formation[:, None] - target_formation, axis=2)
+    return cost_matrix
+
+    #匈牙利算法，以使得队形切换代价最小
+def hungarian_algorithm(origin_formation, target_formation):
+    # 计算两个队形的距离矩阵
+    adj_matrix = get_cost_matrix(origin_formation, target_formation)
     row_index, col_index = linear_sum_assignment(adj_matrix)
     cost_sum = adj_matrix[row_index, col_index].sum()
     # new_formation = np.array(target_formation)[col_ind]
     return col_index + 1
+
+    #混合整数线性规划,以使得队形切换时间最小
+def milp_algorithm(origin_formation, target_formation):
+
+    adj_matrix = get_cost_matrix(origin_formation, target_formation)
+    prob = pl.LpProblem("example", pl.LpMinimize)
+    size = range(adj_matrix.shape[0])
+    # 创建变量
+    t = pl.LpVariable("t", 0, None, pl.LpContinuous)
+    c = pl.LpVariable.dicts("c", (size, size),0,1,pl.LpInteger)
+    # 添加目标函数 最小化时间和一定程度上的代价
+    prob += len(size)*t + pl.lpSum(adj_matrix[i][j]*c[i][j] for i in size for j in size)
+    # 添加约束条件
+    for i in size:
+        for j in size:
+            prob += t >= adj_matrix[i][j] * c[i][j]
+    for i in size:
+        prob += (pl.lpSum(c[i][j] for j in size) == 1)
+    for j in size:
+        prob += (pl.lpSum(c[i][j] for i in size) == 1)
+    # 求解问题
+    prob.solve()
+    print(t.name,t.varValue)
+    # 每行元素选择的列
+    change_ids = [0 for i in size]
+    for i in size:
+        for j in size:
+            if c[i][j].varValue == 1:
+                change_ids[i] = j + 1
+    return change_ids
 
 
 # 定义算法主函数taskFunction(self,id,nbrDirection,datalist)
@@ -113,7 +149,8 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
         print_iter = 0
         origin_formation = formation["origin"]
         target_formation = formation["triangle"]
-        target_formation_index = hungarian_algorithm(origin_formation, target_formation)
+        # target_formation_index = hungarian_algorithm(origin_formation, target_formation)
+        target_formation_index = milp_algorithm(origin_formation, target_formation)
         leader_id = int(self.leader)-1
         target_leader_state = target_formation[leader_id]
         target_follower_state = target_formation[target_formation_index[uavid-1]]  #这里默认了第一个是leader,修正下标
