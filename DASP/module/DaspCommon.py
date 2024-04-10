@@ -162,12 +162,16 @@ class DaspCommon():
 
 
     属性:
+        COMMRANGE: 通信范围
         nodeID: 节点ID
         IP: 节点IP
         Port: 节点端口列表
         nbrID: 邻居ID
-        nbrDirection: 邻居方向
-        nbrDirectionOtherSide: 节点在邻居的方向
+        wiredNbrID: 有线邻居ID
+        wiredlessNbrID: 无线邻居ID
+        nodesIpDict: 节点IP字典
+        nodesPortdict: 节点端口字典
+        assignedPortDict: 节点为邻居分配的端口字典
         nbrSocket: 邻居通信套接字
         RouteTable: 邻居IP及端口列表
         GuiInfo: UI界面IP及端口
@@ -175,20 +179,32 @@ class DaspCommon():
         headerSize: 自定义消息头长度，8个字节
         systemFlag: 系统标志，用于判断系统是否初始化完成
         (包括读取拓扑文件的信息，以及所有类共有的信息)
+        commServerThread: 通信服务器线程(邻居连接)
+        taskServerThread: 任务服务器线程(任务接收)
+        systemTaskThread: 系统任务线程
     '''
     # 类变量，直接通过DaspCommon.维护
+    COMMRANGE = 10
     nodeID = ""
     IP = ""
     Port = []
     nbrID = []
     nbrDirection = []
-    nbrDirectionOtherSide = []
+    wiredNbrID = []
+    wiredlessNbrID = []
     nbrSocket = {}
-    RouteTable = []
     GuiInfo = ["localhost",50000]    
+    nodesIpDict = {}
+    nodesPortdict = {}
+    assignedPortDict = {}
     headformat = "!2I"
     headerSize = 8
     systemFlag = False
+
+    commServerThread = []
+    taskServerThread = []
+    systemTaskThread = []
+
     def __init__(self):
         pass
 
@@ -220,10 +236,10 @@ class DaspCommon():
             index = DaspCommon.nbrID.index(id)      
             del DaspCommon.nbrID[index]
             del DaspCommon.nbrDirection[index]
-        for ele in DaspCommon.RouteTable:
-            if ele:
-                if ele[4] == id:
-                    DaspCommon.RouteTable.remove(ele)
+        if id in DaspCommon.wiredNbrID:
+            del DaspCommon.wiredNbrID[index]
+        if id in DaspCommon.wiredlessNbrID:
+            del DaspCommon.wiredlessNbrID[index]
         if id in DaspCommon.nbrSocket:
             del DaspCommon.nbrSocket[id]
 

@@ -6,7 +6,7 @@ from DASP.module import Node,Moniter
 from DASP.control import ControlMixin
 
 nodeNum = 9  # Number of nodes
-startNode = "1" # Starting nodme IDm
+startNode = "1" # Starting node ID
 nodelist = [] # List of node processes
 controlMixin = ControlMixin("Pc") # Collection of control functions
 

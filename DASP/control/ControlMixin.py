@@ -28,9 +28,9 @@ class ControlMixin():
         self.localIP = socket.gethostbyname(socket.gethostname())
         self.TaskPortDict = {}
         self.IPDict = {}
-        for ele in js:
+        for ele in js["Nodes"]:
             if "ID" in ele:
-                self.TaskPortDict[ele["ID"]] = ele["Port"][0]
+                self.TaskPortDict[ele["ID"]] = ele["Port"]
                 self.IPDict[ele["ID"]] = self.localIP
         if mode == "PI":
             path = os.getcwd() + "/Dapp/Base/binding.csv"

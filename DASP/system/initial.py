@@ -8,52 +8,37 @@ if __name__ == '__main__':
     IP = []
     Port = []
     ID = []
-    nbrID = [] 
-    datalist = []
-    nbrDirection = []
+    wiredNbrID = []
+    Data = []
+    nodesIpDict = {}
+    nodesPortdict = {}
+    # nbrIpDict = {}
+    # nbrPortdict = {}
     localIP = socket.gethostbyname(socket.gethostname())
     path = os.getcwd() + "/Dapp/Base/topology.json"
     text = codecs.open(path, 'r', 'utf-8').read()
     js = json.loads(text)
-    for ele in js:
+    COMMRANGE = js["CommRange"]
+    for ele in js["Nodes"]:
         if "ID" in ele:
             ID.append(ele["ID"])
             IP.append(localIP)
             Port.append(ele["Port"])
-            nbrID.append(ele["nbrID"])
-            nbrDirection.append(ele["nbrDirection"])
-            datalist.append(ele["datalist"])
+            wiredNbrID.append(ele["WiredNbrID"])
+            nodesIpDict[ele["ID"]] = localIP
+            nodesPortdict[ele["ID"]] = ele["Port"]
 
+    # order = 0
     order = int(sys.argv[1])
     selfID = ID[order]
-    selfNbrID = nbrID[order]
-    selfNbrDirection = nbrDirection[order]
+    selfWiredNbrID = wiredNbrID[order]
     selfIP = IP[order]
     selfPort = Port[order]
-    selfDatalist = datalist[order]
-    selfRouteTable = []
-    selfNbrDirectionOtherSide = {}
-    n = len(IP)
-    for i in range(len(selfNbrID)):
-        selfRouteTable.append([])
-        direction = selfNbrDirection[i]
-        selfRouteTable[i].append(selfIP)
-        selfRouteTable[i].append(selfPort[direction])
-        for j in range(n):
-            if ID[j] == selfNbrID[i]:
-                selfRouteTable[i].append(IP[j])
-                for k in range(len(nbrID[j])):
-                    if nbrID[j][k] == selfID:
-                        selfRouteTable[i].append(Port[j][nbrDirection[j][k]])
-                        selfNbrDirectionOtherSide[ID[j]] = nbrDirection[j][k]
-                        break
-                selfRouteTable[i].append(ID[j])
-                break
-    
-    selfRouteTableprint = [str(ele) for ele in selfRouteTable]
-    print("RouteTable: "+ json.dumps(selfRouteTableprint, indent=2))
+    # nbrIpDict = {ele for ele in nodesIpDict.items() if ele[0] in selfWiredNbrID}
+    # nbrPortdict = {ele for ele in nodesPortdict.items() if ele[0] in selfWiredNbrID}
+    print(f"selfID: {selfID}, selfWiredNbrID: {selfWiredNbrID}, selfIP: {selfIP}, selfPort: {selfPort}")
 
     GuiInfo = [localIP, 50000]
-    server = system.Server(selfID, GuiInfo, selfNbrID, selfNbrDirection, selfNbrDirectionOtherSide, selfRouteTable, selfIP, selfPort, selfDatalist)
+    server = system.Server(selfID, GuiInfo, nodesIpDict, nodesPortdict, COMMRANGE, selfWiredNbrID, selfIP, selfPort)
     server.run()
     server.runSystemTask()

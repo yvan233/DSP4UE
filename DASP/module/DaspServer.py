@@ -38,12 +38,10 @@ class BaseServer(DaspCommon):
             self.handleMessage(headPack,body,conn)
             conn.close()
                
-    def recv_long_conn(self, host, port, nbrID = ""):
+    def recv_long_conn(self, server, nbrID = ""):
         """
         长连接循环接收数据框架
         """
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server.bind((host, port))
         server.listen(1) #接收的连接数
         while True:
             conn, addr = server.accept()
@@ -104,16 +102,13 @@ class BaseServer(DaspCommon):
         """
         print ("{}:{} 已断开".format(addr[0],addr[1]))      
 
-    def pingID(self, host, port, nbrID, direction):
+    def pingID(self,nbrID):
         """
         尝试通过TCP连接指定节点
         """
         data = {
             "key": "ping",
-            "id": DaspCommon.nodeID,
-            "host": host,
-            "port": port,
-            "requestdirection": direction
+            "id": DaspCommon.nodeID
         }
         self.send_recv(nbrID, data)
 
@@ -123,34 +118,51 @@ class BaseServer(DaspCommon):
         """
         if id not in DaspCommon.nbrSocket: 
             try:
-                for ele in DaspCommon.RouteTable:
-                    if ele[4] == id:
-                        ip = ele[2]
-                        port = ele[3]
-                        break
-                print (f"connecting to {ip}:{port}")
+                ip = DaspCommon.nodesIpDict[id]
+                print (f"connecting to {id}")
                 remote_ip = socket.gethostbyname(ip)
-                DaspCommon.nbrSocket[id] = TcpSocket(id,remote_ip,port,self)
+                assigned_port = self.connectNbrID(id)
+                DaspCommon.nbrSocket[id] = TcpSocket(id,remote_ip,assigned_port,self)
             except:
                 self.deleteTaskNbrID(id)
                 return 0
-
         DaspCommon.nbrSocket[id].sendall(data)
 
-    def send_recv(self,id,data):
+    def connectNbrID(self, nodeID):
+        '''
+        请求连接邻居节点并获取端口号
+        '''
+        id = nodeID
+        ip = DaspCommon.nodesIpDict[id]
+        port = DaspCommon.nodesPortdict[id]
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((ip, port))
+        data = {
+            "key": "connect",
+            "id": DaspCommon.nodeID
+        }
+        methods = 1
+        body = json.dumps(data)
+        header = [methods, body.__len__()]
+        headPack = struct.pack(self.headformat , *header)
+        sock.sendall(headPack+body.encode())
+
+        recv_data = sock.recv(1024)
+        assigned_port = int(recv_data.decode())
+        sock.close()
+        return assigned_port
+
+    def send_recv(self, id, data):
         """
         通过TCP的形式将信息发送至指定ID的节点,并等待返回结果
         """
         if id not in DaspCommon.nbrSocket: 
             try:
-                for ele in DaspCommon.RouteTable:
-                    if ele[4] == id:
-                        ip = ele[2]
-                        port = ele[3]
-                        break
-                print (f"connecting to {ip}:{port}")
+                ip = DaspCommon.nodesIpDict[id]
+                print (f"connecting to {id}")
                 remote_ip = socket.gethostbyname(ip)
-                DaspCommon.nbrSocket[id] = TcpSocket(id,remote_ip,port,self)
+                assigned_port = self.connectNbrID(id)
+                DaspCommon.nbrSocket[id] = TcpSocket(id,remote_ip,assigned_port,self)
             except:
                 self.deleteTaskNbrID(id)
                 return 0
@@ -162,10 +174,8 @@ class BaseServer(DaspCommon):
         将json消息转发给子节点
         """
         if BaseServer.TaskDict[DappName].childID:
-            for ele in reversed(BaseServer.TaskDict[DappName].taskRouteTable):
-                if ele:
-                    if ele[4] in BaseServer.TaskDict[DappName].childID:
-                        self.send(ele[4], data=jdata)
+            for child in reversed(BaseServer.TaskDict[DappName].childID):
+                self.send(child, data=jdata)
 
     def forward2parentID(self, jdata, DappName):
         """
@@ -182,7 +192,7 @@ class BaseServer(DaspCommon):
         for key in BaseServer.TaskDict:
             BaseServer.TaskDict[key].deleteTaskNbrID(id)       
         self.sendRunDatatoGUI(f"Connection to neighbor node {id} has been deleted.") 
-
+        
     def addTaskNbrID(self, id, direction):
         """
         添加本节点的任务和指定id邻居节点的所有连接(任务字典中的变量)
@@ -234,7 +244,10 @@ class TaskServer(BaseServer):
         try:
             jdata = body
             if headPack[0] == 1:
-                if jdata["key"] == "newtask":
+                if jdata["key"] == "connect":
+                    self.respondConnect(jdata, conn)
+
+                elif jdata["key"] == "newtask":
                     self.newtask(jdata)
 
                 elif jdata["key"] == "pausetask":
@@ -248,7 +261,8 @@ class TaskServer(BaseServer):
 
                 else:
                     info = "您输入的任务信息有误！"
-                    self.sendRunDatatoGUI(info+jdata)
+                    self.sendRunDatatoGUI(info+str(jdata))
+                    print(info+str(jdata))
             else:
                 info = "暂未提供POST以外的接口"
                 self.sendRunDatatoGUI(info)
@@ -256,6 +270,31 @@ class TaskServer(BaseServer):
             self.sendRunDatatoGUI("Task server error!")
             print(traceback.format_exc())
             self.sendRunDatatoGUI(traceback.format_exc())
+
+    def respondConnect(self, jdata, conn):
+        """
+        建立邻居节点连接，分配通信服务器端口号
+        """
+        id = jdata["id"]
+        if id not in DaspCommon.assignedPortDict:
+            commserver = CommServer(DaspCommon.IP)
+            t = threading.Thread(target=commserver.run,args=())
+            t.setDaemon(True)
+            t.start()
+            DaspCommon.commServerThread.append(t)
+            DaspCommon.assignedPortDict[id] = commserver.get_bound_port()
+            
+        conn.sendall(str(DaspCommon.assignedPortDict[id]).encode())
+
+        #动态加入邻居节点(比如邻居断开了等等)
+        if id not in DaspCommon.nbrID:
+            DaspCommon.nbrID.append(id)
+            direction = max(DaspCommon.nbrDirection) + 1
+            DaspCommon.nbrDirection.append(direction)
+            self.pingID(id)
+            self.sendRunDatatoGUI(f"Reconnected successfully with neighbor node {id},\
+                                   connection with {id} has been added.")
+            self.addTaskNbrID(id,direction)
 
     def newtask(self, jdata): 
         """
@@ -306,9 +345,8 @@ class TaskServer(BaseServer):
             time.sleep(5)  # wait for other nodes to start
         while(True):
             last_time = time.time()
-            for ele in reversed(DaspCommon.RouteTable):
-                if ele:
-                    self.pingID(ele[0], ele[1], ele[4], DaspCommon.nbrDirectionOtherSide[ele[4]])
+            for ele in reversed(DaspCommon.nbrID):
+                self.pingID(ele)
 
             if DaspCommon.systemFlag == False:  
                 # 第一轮开启系统自启动任务进程
@@ -350,18 +388,23 @@ class CommServer(BaseServer):
     通信服务器，用于节点和其他节点通信
     """
     host = "locolhost"
-    port = 10000
 
-    def __init__(self,host,port):
+    def __init__(self,host):
         self.host = host
-        self.port = port
+        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server.bind((host, 0))
+        self.bound_port = self.server.getsockname()[1] # 获取绑定的端口号
+        
+
+    def get_bound_port(self):
+        return self.bound_port
 
     def run(self):
         """
         服务器开始运行
         """
-        print ("CommServer on: {}:{}".format(self.host,str(self.port)))
-        self.recv_long_conn(self.host, self.port)
+        print ("CommServer on: {}:{}".format(self.host,self.bound_port))
+        self.recv_long_conn(self.server)
 
     def handleMessage(self, headPack, body, conn):
         """
@@ -422,23 +465,10 @@ class CommServer(BaseServer):
 
     def respondPing(self, jdata, conn):
         """
-        回应ping信号，如果发送的节点之前不在邻居节点中 且 申请方向未被占用，则加入网络
+        回应ping信号，如果发送的节点之前不在邻居节点中则加入网络
         """
         ID = jdata["id"]
         conn.sendall(b'pong')
-        if ID not in DaspCommon.nbrID:
-            direction = jdata["requestdirection"]
-            if direction not in DaspCommon.nbrDirection:
-                DaspCommon.RouteTable.append([self.IP,self.Port[direction],jdata["host"],jdata["port"],ID])
-                DaspCommon.nbrID.append(ID)
-                DaspCommon.nbrDirection.append(direction)
-                self.pingID(self.IP, self.Port[direction], ID, DaspCommon.nbrDirectionOtherSide[ID])
-                self.sendRunDatatoGUI(f"Reconnected successfully with neighbor node {ID}, connection with {ID} has been added.")
-            else:
-                info = f"The direction {direction} of node {DaspCommon.nodeID} is occupied, please choose another direction!"
-                self.sendRunDatatoGUI(info)
-            self.addTaskNbrID(ID, direction)
-
         
     def respondPauseTask(self, jdata):
         """

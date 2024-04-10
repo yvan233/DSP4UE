@@ -1,38 +1,41 @@
 {
-   "CommRange": 100.0,
+   "CommRange": 10.0,
    "Node":[
       {
          "ID": "1",
          "Location":{
-            "Lat": 40.05405,
-            "Lot": 116.16872, 
-            "Alt": 8
+            "X": 0, "Y": 0, "Z": 0
             },
          "Port": [10000], 
-         "wired_nbrID": [], 
-         "nbrDirection": [],
-         "data": []
+         "WiredNbrID": [2,3,4], 
+         "Data": []
       }, 
       {
          "ID": "2",
+         "Location":{
+            "X": 8, "Y": 0, "Z": 0
+            },
          "Port": [10001], 
-         "nbrID": [], 
-         "nbrDirection": [],
-         "data": []
+         "WiredNbrID": [1], 
+         "Data": []
       }, 
       {
          "ID": "3",
+         "Location":{
+            "X": 0, "Y": 8, "Z": 0
+            },
          "Port": [10002], 
-         "nbrID": [], 
-         "nbrDirection": [],
-         "data": []
+         "WiredNbrID": [1], 
+         "Data": []
       }, 
       {
          "ID": "4",
+         "Location":{
+            "X": 8, "Y": 8, "Z": 0
+            },
          "Port": [10003], 
-         "nbrID": [], 
-         "nbrDirection": [],
-         "data": []
+         "WiredNbrID": [1], 
+         "Data": []
       }
    ]
 }
