@@ -289,11 +289,13 @@ class TaskServer(BaseServer):
         #动态加入邻居节点(比如邻居断开了等等)
         if id not in DaspCommon.nbrID:
             DaspCommon.nbrID.append(id)
-            direction = max(DaspCommon.nbrDirection) + 1
+            if DaspCommon.nbrDirection:
+                direction = max(DaspCommon.nbrDirection) + 1
+            else:
+                direction = 1
             DaspCommon.nbrDirection.append(direction)
             self.pingID(id)
-            self.sendRunDatatoGUI(f"Reconnected successfully with neighbor node {id},\
-                                   connection with {id} has been added.")
+            self.sendRunDatatoGUI(f"Connected successfully with neighbor node {id}")
             self.addTaskNbrID(id,direction)
 
     def newtask(self, jdata): 

@@ -1,65 +1,86 @@
-[
-    {
-         "ID": "1",
-         "Port": [10000, 10001, 10002, 10003, 10004, 10005, 10006, 10007, 10008, 10009],
-         "nbrID": ["2", "3", "4", "5", "6", "7", "8", "9"],
-         "nbrDirection": [1, 2, 3, 4, 5, 6, 7, 8],
-         "datalist": []
-     },
-     {
-         "ID": "2",
-         "Port": [10010, 10011],
-         "nbrID": ["1"],
-         "nbrDirection": [1],
-         "datalist": []
-     },
-     {
-         "ID": "3",
-         "Port": [10014, 10015],
-         "nbrID": ["1"],
-         "nbrDirection": [1],
-         "datalist": []
-     },
-     {
-         "ID": "4",
-         "Port": [10021, 10022],
-         "nbrID": ["1"],
-         "nbrDirection": [1],
-         "datalist": []
-     },
-     {
-         "ID": "5",
-         "Port": [10028, 10029],
-         "nbrID": ["1"],
-         "nbrDirection": [1],
-         "datalist": []
-     },
-     {
-         "ID": "6",
-         "Port": [10035, 10036],
-         "nbrID": ["1"],
-         "nbrDirection": [1],
-         "datalist": []
-     },
-     {
-         "ID": "7",
-         "Port": [10037, 10038],
-         "nbrID": ["1"],
-         "nbrDirection": [1],
-         "datalist": []
-     },
-     {
-         "ID": "8",
-         "Port": [10039, 10040],
-         "nbrID": ["1"],
-         "nbrDirection": [1],
-         "datalist": []
-     },
-     {
-         "ID": "9",
-         "Port": [10041, 10042],
-         "nbrID": ["1"],
-         "nbrDirection": [1],
-         "datalist": []
-     }
- ]
+{
+    "CommRange": 10.0,
+    "Nodes":[
+       {
+          "ID": "1",
+          "Location":{
+             "X": 0, "Y": 0, "Z": -2
+             },
+          "Port": 10000, 
+          "WiredNbrID": ["2", "3", "4", "5", "6", "7", "8", "9"], 
+          "Data": []
+       }, 
+       {
+          "ID": "2",
+          "Location":{
+             "X": 0, "Y": 3, "Z": -2
+             },
+          "Port": 10001, 
+          "WiredNbrID": ["1"], 
+          "Data": []
+       }, 
+       {
+          "ID": "3",
+          "Location":{
+             "X": 0, "Y": 6, "Z": -2
+             },
+          "Port": 10002, 
+          "WiredNbrID": ["1"], 
+          "Data": []
+       }, 
+       {
+          "ID": "4",
+          "Location":{
+             "X": -3, "Y": 0, "Z": -2
+             },
+          "Port": 10003, 
+          "WiredNbrID": ["1"], 
+          "Data": []
+       }, 
+       {
+          "ID": "5",
+          "Location":{
+             "X": -3, "Y": 3, "Z": -2
+             },
+          "Port": 10004, 
+          "WiredNbrID": ["1"], 
+          "Data": []
+       }, 
+       {
+          "ID": "6",
+          "Location":{
+             "X": -3, "Y": 6, "Z": -2
+             },
+          "Port": 10005, 
+          "WiredNbrID": ["1"], 
+          "Data": []
+       }, 
+       {
+          "ID": "7",
+          "Location":{
+             "X": -3, "Y": 0, "Z": -2
+             },
+          "Port": 10006, 
+          "WiredNbrID": ["1"], 
+          "Data": []
+       }, 
+       {
+          "ID": "8",
+          "Location":{
+             "X": -6, "Y": 3, "Z": -2
+             },
+          "Port": 10007, 
+          "WiredNbrID": ["1"], 
+          "Data": []
+       }, 
+       {
+          "ID": "9",
+          "Location":{
+             "X": -6, "Y": 6, "Z": -2
+             },
+          "Port": 10008, 
+          "WiredNbrID": ["1"], 
+          "Data": []
+       }
+    ]
+ }
