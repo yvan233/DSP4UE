@@ -19,10 +19,10 @@ if __name__ == '__main__':
     nodeIP = p.stdout.read()
     nodeIP = str(nodeIP,encoding = 'UTF-8').strip(' \n')
     selfID = 0
-    GuiInfo = ["localhost",50000]
+    GuiInfo = ["localhost",50000,50001]
     for ele in idiplist:
         if ele[2] == "server":
-            GuiInfo = [ele[1],50000]
+            GuiInfo = [ele[1],50000,50001]
         elif ele[1] == nodeIP:
             selfID = ele[0]
             break

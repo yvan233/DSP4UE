@@ -110,7 +110,11 @@ class BaseServer(DaspCommon):
             "key": "ping",
             "id": DaspCommon.nodeID
         }
-        self.send_recv(nbrID, data)
+        thread = threading.Thread(target=self.send_recv, args=(nbrID,data,))
+        thread.start()
+        # self.send_recv(nbrID, data)
+
+        
 
     def send(self,id,data):
         """
@@ -215,6 +219,31 @@ class BaseServer(DaspCommon):
         """
         self.sendtoGUIbase(info, "RunFlag", DappName)
 
+    def updateTopology(self, location):
+        """
+        更新节点位置，维护节点之间的拓扑关系,可根据距离关系只连接最近的几个
+        """
+        # ['3', '6', '5', '9'] [5.0, 7.211, 9.22, 9.849]
+        topology, nbrDistance = self.getTopoFromMap(location)
+        if topology:
+            # 删除不在拓扑中的节点
+            for node in DaspCommon.nbrID:
+                if node not in topology:
+                    self.deleteTaskNbrID(node)
+            # 添加新的节点
+            for i,node in enumerate(topology):
+                if node not in DaspCommon.nbrID:
+                    # DaspCommon.wiredlessNbrID.append(node)
+                    DaspCommon.nbrID.append(node)
+                    if DaspCommon.nbrDirection:
+                        direction = max(DaspCommon.nbrDirection) + 1
+                    else:
+                        direction = 1
+                    DaspCommon.nbrDirection.append(direction)
+                    self.pingID(node)
+                    self.sendRunDatatoGUI(f"Connected with node {node}")
+                    self.addTaskNbrID(node,direction)
+
 class TaskServer(BaseServer):
     """外部交互服务器
     
@@ -295,7 +324,7 @@ class TaskServer(BaseServer):
                 direction = 1
             DaspCommon.nbrDirection.append(direction)
             self.pingID(id)
-            self.sendRunDatatoGUI(f"Connected successfully with neighbor node {id}")
+            self.sendRunDatatoGUI(f"Connected with node {id}")
             self.addTaskNbrID(id,direction)
 
     def newtask(self, jdata): 
@@ -351,6 +380,9 @@ class TaskServer(BaseServer):
                 self.pingID(ele)
 
             if DaspCommon.systemFlag == False:  
+                # 第一轮启动更新无线拓扑
+                if DaspCommon.wiredless:
+                    self.updateTopology(DaspCommon.location)
                 # 第一轮开启系统自启动任务进程
                 self.startthreads = threading.Thread(target=self.autostarttask, args=())
                 self.startthreads.start()

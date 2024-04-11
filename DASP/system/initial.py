@@ -12,6 +12,8 @@ if __name__ == '__main__':
     Data = []
     nodesIpDict = {}
     nodesPortdict = {}
+    location = []
+    wiredless = []
     # nbrIpDict = {}
     # nbrPortdict = {}
     localIP = socket.gethostbyname(socket.gethostname())
@@ -27,6 +29,8 @@ if __name__ == '__main__':
             wiredNbrID.append(ele["WiredNbrID"])
             nodesIpDict[ele["ID"]] = localIP
             nodesPortdict[ele["ID"]] = ele["Port"]
+            location.append(ele["Location"])
+            wiredless.append(ele["Wireless"])
 
     # order = 0
     order = int(sys.argv[1])
@@ -34,11 +38,13 @@ if __name__ == '__main__':
     selfWiredNbrID = wiredNbrID[order]
     selfIP = IP[order]
     selfPort = Port[order]
+    selfLocation = location[order]
+    selfWireless = wiredless[order]
     # nbrIpDict = {ele for ele in nodesIpDict.items() if ele[0] in selfWiredNbrID}
     # nbrPortdict = {ele for ele in nodesPortdict.items() if ele[0] in selfWiredNbrID}
     print(f"selfID: {selfID}, selfWiredNbrID: {selfWiredNbrID}, selfIP: {selfIP}, selfPort: {selfPort}")
 
-    GuiInfo = [localIP, 50000]
-    server = system.Server(selfID, GuiInfo, nodesIpDict, nodesPortdict, COMMRANGE, selfWiredNbrID, selfIP, selfPort)
+    GuiInfo = [localIP, 50000, 50001]
+    server = system.Server(selfID, GuiInfo, nodesIpDict, nodesPortdict, COMMRANGE, selfWiredNbrID, selfIP, selfPort, selfLocation, selfWireless)
     server.run()
     server.runSystemTask()

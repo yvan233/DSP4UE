@@ -6,7 +6,7 @@ sys.path.insert(1,".")  # 把上一级目录加入搜索路径
 from DASP.module import DaspCommon, TaskServer, CommServer
 
 class Server(object):
-    def __init__(self, ID, GuiInfo, nodesIpDict, nodesPortdict, COMMRANGE, wiredNbrID, IP,Port):
+    def __init__(self, ID, GuiInfo, nodesIpDict, nodesPortdict, COMMRANGE, wiredNbrID, IP,Port,location,wiredless):
         DaspCommon.nodeID = ID
         DaspCommon.GuiInfo = GuiInfo
         DaspCommon.nodesIpDict = nodesIpDict
@@ -17,6 +17,9 @@ class Server(object):
         DaspCommon.nbrID = wiredNbrID
         DaspCommon.nbrDirection = [ i+1 for i in range(len(wiredNbrID))]
         DaspCommon.wiredNbrID = wiredNbrID
+        DaspCommon.location = location
+        DaspCommon.wiredless = wiredless
+
         DaspCommon.wiredlessNbrID = []
         DaspCommon.commServerThread = []
         DaspCommon.taskServerThread = []

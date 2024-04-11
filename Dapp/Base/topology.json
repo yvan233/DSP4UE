@@ -7,7 +7,8 @@
              "X": 0, "Y": 0, "Z": -2
              },
           "Port": 10000, 
-          "WiredNbrID": ["2", "3", "4", "5", "6", "7", "8", "9"], 
+          "WiredNbrID": [], 
+          "Wireless": 1,
           "Data": []
        }, 
        {
@@ -16,7 +17,8 @@
              "X": 0, "Y": 3, "Z": -2
              },
           "Port": 10001, 
-          "WiredNbrID": ["1"], 
+          "WiredNbrID": [], 
+          "Wireless": 1,
           "Data": []
        }, 
        {
@@ -25,7 +27,8 @@
              "X": 0, "Y": 6, "Z": -2
              },
           "Port": 10002, 
-          "WiredNbrID": ["1"], 
+          "WiredNbrID": [],
+          "Wireless": 1,
           "Data": []
        }, 
        {
@@ -34,7 +37,8 @@
              "X": -3, "Y": 0, "Z": -2
              },
           "Port": 10003, 
-          "WiredNbrID": ["1"], 
+          "WiredNbrID": [],
+          "Wireless": 1,
           "Data": []
        }, 
        {
@@ -43,7 +47,8 @@
              "X": -3, "Y": 3, "Z": -2
              },
           "Port": 10004, 
-          "WiredNbrID": ["1"], 
+          "WiredNbrID": [],
+          "Wireless": 1,
           "Data": []
        }, 
        {
@@ -52,16 +57,18 @@
              "X": -3, "Y": 6, "Z": -2
              },
           "Port": 10005, 
-          "WiredNbrID": ["1"], 
+          "WiredNbrID": [],
+          "Wireless": 1,
           "Data": []
        }, 
        {
           "ID": "7",
           "Location":{
-             "X": -3, "Y": 0, "Z": -2
+             "X": -6, "Y": 0, "Z": -2
              },
           "Port": 10006, 
-          "WiredNbrID": ["1"], 
+          "WiredNbrID": [],
+          "Wireless": 1,
           "Data": []
        }, 
        {
@@ -70,7 +77,8 @@
              "X": -6, "Y": 3, "Z": -2
              },
           "Port": 10007, 
-          "WiredNbrID": ["1"], 
+          "WiredNbrID": [],
+          "Wireless": 1,
           "Data": []
        }, 
        {
@@ -79,7 +87,8 @@
              "X": -6, "Y": 6, "Z": -2
              },
           "Port": 10008, 
-          "WiredNbrID": ["1"], 
+          "WiredNbrID": [],
+          "Wireless": 1,
           "Data": []
        }
     ]

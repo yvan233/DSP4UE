@@ -119,27 +119,32 @@ class Task(DaspCommon):
             self.loadDebugInfo(debugpath)
 
             order = ID.index(DaspCommon.nodeID)
-            selfNbrID = AllwiredNbrID[order]
+            selfWiredNbrID = AllwiredNbrID[order]
             # selfNbrDirection = AllNbrDirection[order]
-            selfNbrDirection = [ i+1 for i in range(len(selfNbrID))]
+            selfNbrDirection = [ i+1 for i in range(len(selfWiredNbrID))]
             selfDatalist = AllDatalist[order]
             # selfRouteTable = []
 
             ### 如果节点已经掉线了，那初始化的任务节点ID不包含这个节点
-            for i in range(len(selfNbrID)-1,-1,-1):
-                if selfNbrID[i] not in DaspCommon.nbrID:
-                    selfNbrID.remove(selfNbrID[i])
+            for i in range(len(selfWiredNbrID)-1,-1,-1):
+                if selfWiredNbrID[i] not in DaspCommon.nbrID:
+                    selfWiredNbrID.remove(selfWiredNbrID[i])
                     selfNbrDirection.remove(selfNbrDirection[i])
-            # for i in range(len(selfNbrID)):
-            #     selfRouteTable.append([])
-            #     for ele in DaspCommon.RouteTable:
-            #         if ele[4] == selfNbrID[i]:
-            #             selfRouteTable[i] = ele
-            #             break
+
+            self.taskNbrID = selfWiredNbrID
             self.taskNbrDirection = selfNbrDirection
-            self.taskNbrID = selfNbrID
             self.taskDatalist = selfDatalist
-            # self.taskRouteTable = selfRouteTable
+
+            ## 添加无线邻居节点
+            for ele in DaspCommon.nbrID:
+                # 在任务节点中,但尚未在邻居节点中
+                if (ele in self.taskID) and (ele not in self.taskNbrID):
+                    self.taskNbrID.append(ele)
+                    if selfNbrDirection:
+                        direction = max(selfNbrDirection) + 1
+                    else:
+                        direction = 1
+                    self.taskNbrDirection.append(direction)
 
             # 初始化各属性
             self.taskBeginFlag = 0

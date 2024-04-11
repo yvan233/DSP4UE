@@ -169,11 +169,12 @@ class DaspCommon():
         nbrID: 邻居ID
         wiredNbrID: 有线邻居ID
         wiredlessNbrID: 无线邻居ID
+        location: 节点位置
+        wiredless: 无线标志
         nodesIpDict: 节点IP字典
         nodesPortdict: 节点端口字典
         assignedPortDict: 节点为邻居分配的端口字典
         nbrSocket: 邻居通信套接字
-        RouteTable: 邻居IP及端口列表
         GuiInfo: UI界面IP及端口
         headformat: 自定义消息头格式，methods+length，2个无符号整形变量
         headerSize: 自定义消息头长度，8个字节
@@ -192,6 +193,8 @@ class DaspCommon():
     nbrDirection = []
     wiredNbrID = []
     wiredlessNbrID = []
+    location = {"X": 0, "Y": 0, "Z": 0}
+    wiredless = 1
     nbrSocket = {}
     GuiInfo = ["localhost",50000]    
     nodesIpDict = {}
@@ -226,6 +229,30 @@ class DaspCommon():
             sock.close()
         except Exception as e:
             print ("Failed to send" + info)
+
+    def getTopoFromMap(self, location):
+        """
+        通过UDP的形式将信息发送至mapserver,从而获取邻居拓扑
+        """
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            addr = (DaspCommon.GuiInfo[0], DaspCommon.GuiInfo[2])
+            data = {
+                "key": "GetTopology",
+                "id": DaspCommon.nodeID,
+                "time": datetime.datetime.now().strftime("%m-%d %H:%M:%S"),
+                "location": location
+            }
+            sock.sendto(json.dumps(data).encode('utf-8'), addr)
+            data = sock.recv(1000000)
+            sock.close()
+            jdata = json.loads(data)
+            topology = jdata["topology"]
+            nbrDistance = jdata["nbrDistance"]
+            return topology, nbrDistance
+        except Exception as e:
+            print ("Failed to send" + location)
+            return [],[]
 
     def deleteNbrID(self, id):  
         """
