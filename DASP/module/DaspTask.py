@@ -365,7 +365,7 @@ class Task(DaspCommon):
 
         if id in self.taskNbrID:
             index = self.taskNbrID.index(id)    
-            self.deleteDirection.put(self.taskNbrDirection[index])  
+            direction = self.taskNbrDirection[index]
             del self.taskNbrID[index]
             del self.taskNbrDirection[index]   
             del self.nbrSyncStatus[index] 
@@ -374,6 +374,7 @@ class Task(DaspCommon):
             del self.nbrData2[index]
             del self.nbrAsynchData[index]
             del self.nbrAlstData[index]
+            self.deleteDirection.put(direction) 
 
 
     def addTaskNbrID(self, id, direction):
@@ -508,7 +509,9 @@ class Task(DaspCommon):
                                 del self.childDirection[index]
                                 del self.childData[index]
                             else:
-                                del edges[direction]
+                                # 处理一些异步的问题
+                                if direction in edges:
+                                    del edges[direction]
                     else:
                         for i,que in enumerate(self.nbrAlstData):
                             if not que.empty():
@@ -816,3 +819,9 @@ class Task(DaspCommon):
                 time.sleep(0.01)
             for i in range(len(self.nbrSyncStatus2)):
                 self.nbrSyncStatus2[i] = 0
+
+    def updateTopology(self, location):
+        """
+        更新节点位置，维护节点之间的拓扑关系
+        """
+        self.owner.updateTopology(location)

@@ -570,8 +570,9 @@ class CommServer(BaseServer):
         task = BaseServer.TaskDict[name]
         while(not hasattr(task,'loadflag')):time.sleep(0.01)
         while(task.loadflag == 0):time.sleep(0.01)
-        index = task.taskNbrID.index(jdata["id"])
-        task.nbrAlstData[index].put(jdata["data"])
+        if jdata["id"] in task.taskNbrID:
+            index = task.taskNbrID.index(jdata["id"])
+            task.nbrAlstData[index].put(jdata["data"])
 
 
     def respondAsynchData(self, jdata):
