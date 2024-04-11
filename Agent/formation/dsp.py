@@ -2,7 +2,7 @@
 import time 
 import sys
 sys.path.insert(1,".")
-from DASP.module import Node,Moniter
+from DASP.module import Node,Moniter,DaspMap
 from DASP.control import ControlMixin
 
 nodeNum = 9  # Number of nodes
@@ -13,6 +13,10 @@ controlMixin = ControlMixin("Pc") # Collection of control functions
 # Launch the monitoring script
 moniter = Moniter()
 moniter.run()
+
+# Launch map server
+map = DaspMap()
+map.run()
 
 # Launch node processes
 for i in range(nodeNum):
