@@ -47,6 +47,7 @@ class Task(DaspCommon):
         taskThreads :多线程
 
         commTreeFlag: 当前节点是否被加进通信树标志
+        treeWaitFlag: 生成树维护等待标志
         taskBeginFlag: 任务启动标志
         taskEndFlag: 任务结束标志
         dataEndFlag: 根节点数据收集结束标志
@@ -73,6 +74,7 @@ class Task(DaspCommon):
         self.DappName = DappName
         self.owner = owner
         self.commTreeFlag = 1
+        self.treeWaitFlag = 0
         self.dataEndFlag = 0
         self.loadflag = 0 
         self.timesleepFlag = threading.Event()
@@ -342,7 +344,7 @@ class Task(DaspCommon):
         """
         for i in range(len(self.nbrData)):
             self.nbrAsynchData[i] = []
-            self.nbrAlstData[i] = []
+            self.nbrAlstData[i] = queue.Queue()
             self.nbrData[i] = []
             self.nbrData2[i] = []
 
@@ -358,8 +360,9 @@ class Task(DaspCommon):
         通过TCP的形式将信息发送至所有邻居
         """
         for ele in reversed(self.taskNbrID):
-            self.send(ele, data)
-
+            thread = threading.Thread(target=self.send, args=(ele,data,))
+            thread.start()
+            
     def deleteTaskNbrID(self, id):  
         """
         删除本节点和指定id邻居节点的所有连接
@@ -386,7 +389,6 @@ class Task(DaspCommon):
         if id in self.taskID:
             # 节点在初始有线邻居节点中 或 节点本身是无线的
             if id in self.taskInitWiredNbrID or self.taskwiredless == 1:
-                self.taskNbrID.append(id)
                 self.taskNbrDirection.append(direction)
                 self.nbrSyncStatus.append(0)
                 self.nbrSyncStatus2.append(0)
@@ -394,12 +396,13 @@ class Task(DaspCommon):
                 self.nbrData2.append([])
                 self.nbrAsynchData.append(queue.Queue())
                 self.nbrAlstData.append(queue.Queue())
+                self.taskNbrID.append(id)
 
     def startCommPattern(self):
         """
         start comm pattern
         """
-        self.commThread = threading.Thread(target=self.commPattern, args=())
+        self.commThread = threading.Thread(target=self.commPattern, args=(True,False,))
         self.commThread.start()
 
     def floodLeaderElection(self):
@@ -417,9 +420,9 @@ class Task(DaspCommon):
         if self.leader == DaspCommon.nodeID:
             self.sendDatatoGUI("This is the leader")
 
-    def commPattern(self):
+    def commPattern(self, InitFlag = False, MaintainFlag = False):
         """
-        communication pattern
+        communication pattern, Initflag:是否初始化，MaintainFlag:是否维护
         """
         def reset():
             flag = False
@@ -432,6 +435,7 @@ class Task(DaspCommon):
             """
             Asynchronous Leaderless Spanning Tree algorithm 
             """
+            leader_state = "non-leader"
             while True:
                 if token <= min_uid:
                     if token < min_uid:
@@ -463,6 +467,7 @@ class Task(DaspCommon):
                             leader_state = "non-leader"  
                             self.sendAlstData(parent,["join",min_uid]) 
                 j,(data,token) = self.getAlstData()
+                # self.sendDatatoGUI(f"j:{j},data:{data},token:{token}")
             return leader_state,parent,child
         def setTree(parent,child):
             """
@@ -473,6 +478,10 @@ class Task(DaspCommon):
             self.childID = [nbrID[nbrDirection.index(ele)] for ele in child]
             self.parentID = nbrID[nbrDirection.index(parent)] if parent != -1 else nodeID
             self.childData = [[]]*len(child)
+    
+        while self.treeWaitFlag: # 等待上一次生成树维护结束
+            time.sleep(0.01)
+        self.treeWaitFlag = True
         nbrDirection = self.taskNbrDirection
         nbrID = self.taskNbrID
         nodeID = DaspCommon.nodeID
@@ -484,6 +493,7 @@ class Task(DaspCommon):
             for ele in nbrDirection:
                 self.sendAlstData(ele,["search",min_uid])
             j,(data,token) = self.getAlstData()
+            # self.sendDatatoGUI(f"j:{j},data:{data},token:{token}")
             while True:
                 if step == 1:
                     __,parent,child = alst(nbrDirection,nodeID,flag,parent,child,edges,min_uid,j,data,token)
@@ -491,8 +501,12 @@ class Task(DaspCommon):
                     # generate complete
                     setTree(parent,child)
                     # self.sendDatatoGUI("parentID:{},childID:{}".format(self.parentID,self.childID))
-                    self.starttask()
-                if step == 2:           
+                    if InitFlag:
+                        self.starttask()
+                if step == 2:
+                    if not MaintainFlag:
+                        self.treeWaitFlag = False
+                        break
                     if not self.deleteDirection.empty():
                         while not self.deleteDirection.empty():
                             direction = self.deleteDirection.get_nowait()
@@ -569,7 +583,21 @@ class Task(DaspCommon):
                     time.sleep(0.01)
         else:
             self.starttask()
-            
+            self.treeWaitFlag = False
+    
+    def updateSpanningTree(self):
+        """
+        更新生成树
+        """
+        self.commPattern(InitFlag = False, MaintainFlag = False)
+        tree = {
+            "childDirection": self.childDirection,
+            "parentDirection": self.parentDirection,
+            "childID": self.childID,
+            "parentID": self.parentID
+            }
+        return tree
+
     def starttask(self):
         if self.parentDirection == -1:
             self.sendDatatoGUI("(Root node) The spanning tree has been built.")

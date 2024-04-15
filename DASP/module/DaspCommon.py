@@ -14,6 +14,65 @@ class Const():
     RECONNECT_TIME_INTERVAL = 30
     SYSTEM_TASK_TIME = 120
 
+
+
+class MapSocket():
+    def __init__(self, id, ip, port):
+        self.ID = id
+        self.remoteIP = ip
+        self.remotePort = port
+
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        localIP = socket.gethostbyname(socket.gethostname())
+        self.socket.bind((localIP, 0))
+        self.localPort = self.socket.getsockname()[1 ]
+
+    def getTopoFromMapSync(self, location):
+        """
+        通过UDP的形式将信息发送至mapserver,从而获取邻居拓扑,同步方式
+        """
+        try:
+            addr = (self.remoteIP, self.remotePort)
+            data = {
+                "key": "GetTopologySync",
+                "id": self.ID,
+                "time": datetime.datetime.now().strftime("%m-%d %H:%M:%S"),
+                "location": location
+            }
+            self.socket.sendto(json.dumps(data).encode('utf-8'), addr)
+            data, __ = self.socket.recvfrom(1000000)
+            jdata = json.loads(data)
+            topology = jdata["topology"]
+            nbrDistance = jdata["nbrDistance"]
+            return topology, nbrDistance
+        except Exception as e:
+            print ("Failed to send" + location)
+            return [],[]
+
+
+    def getTopoFromMapAsync(self, location):
+        """
+        通过UDP的形式将信息发送至mapserver,从而获取邻居拓扑
+        """
+        try:
+            addr = (DaspCommon.GuiInfo[0], DaspCommon.GuiInfo[2])
+            data = {
+                "key": "GetTopologyAsync",
+                "id": DaspCommon.nodeID,
+                "time": datetime.datetime.now().strftime("%m-%d %H:%M:%S"),
+                "location": location
+            }
+            self.socket.sendto(json.dumps(data).encode('utf-8'), addr)
+            data, __ = self.socket.recvfrom(1000000)
+            jdata = json.loads(data)
+            topology = jdata["topology"]
+            nbrDistance = jdata["nbrDistance"]
+            return topology, nbrDistance
+        except Exception as e:
+            print ("Failed to send" + location)
+            return [],[]
+        
+
 class TcpSocket():
     headformat = "!2I"
     headerSize = 8
@@ -167,6 +226,7 @@ class DaspCommon():
         IP: 节点IP
         Port: 节点端口列表
         nbrID: 邻居ID
+        addNbrIDFlag: 邻居ID添加完成标志
         wiredNbrID: 有线邻居ID
         wiredlessNbrID: 无线邻居ID
         location: 节点位置
@@ -196,7 +256,9 @@ class DaspCommon():
     location = {"X": 0, "Y": 0, "Z": 0}
     wiredless = 1
     nbrSocket = {}
-    GuiInfo = ["localhost",50000]    
+    addNbrIDFlag = {}
+    mapSocket = None
+    GuiInfo = ["localhost",50000,50001]    
     nodesIpDict = {}
     nodesPortdict = {}
     assignedPortDict = {}
@@ -230,30 +292,6 @@ class DaspCommon():
         except Exception as e:
             print ("Failed to send" + info)
 
-    def getTopoFromMap(self, location):
-        """
-        通过UDP的形式将信息发送至mapserver,从而获取邻居拓扑
-        """
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            addr = (DaspCommon.GuiInfo[0], DaspCommon.GuiInfo[2])
-            data = {
-                "key": "GetTopology",
-                "id": DaspCommon.nodeID,
-                "time": datetime.datetime.now().strftime("%m-%d %H:%M:%S"),
-                "location": location
-            }
-            sock.sendto(json.dumps(data).encode('utf-8'), addr)
-            data = sock.recv(1000000)
-            sock.close()
-            jdata = json.loads(data)
-            topology = jdata["topology"]
-            nbrDistance = jdata["nbrDistance"]
-            return topology, nbrDistance
-        except Exception as e:
-            print ("Failed to send" + location)
-            return [],[]
-
     def deleteNbrID(self, id):  
         """
         删除本节点和指定id邻居节点的所有连接(DaspCommon类变量)
@@ -264,11 +302,15 @@ class DaspCommon():
             del DaspCommon.nbrID[index]
             del DaspCommon.nbrDirection[index]
         if id in DaspCommon.wiredNbrID:
+            index = DaspCommon.wiredNbrID.index(id)  
             del DaspCommon.wiredNbrID[index]
         if id in DaspCommon.wiredlessNbrID:
+            index = DaspCommon.wiredlessNbrID.index(id) 
             del DaspCommon.wiredlessNbrID[index]
         if id in DaspCommon.nbrSocket:
             del DaspCommon.nbrSocket[id]
+        if id in DaspCommon.addNbrIDFlag:
+            del DaspCommon.addNbrIDFlag[id]
 
     def _async_raise(self, tid, exctype):
         '''

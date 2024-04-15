@@ -3,7 +3,7 @@ import sys
 import threading
 import time
 sys.path.insert(1,".")  # 把上一级目录加入搜索路径
-from DASP.module import DaspCommon, TaskServer, CommServer
+from DASP.module import DaspCommon, TaskServer, CommServer, MapSocket
 
 class Server(object):
     def __init__(self, ID, GuiInfo, nodesIpDict, nodesPortdict, COMMRANGE, wiredNbrID, IP,Port,location,wiredless):
@@ -25,6 +25,8 @@ class Server(object):
         DaspCommon.taskServerThread = []
         DaspCommon.systemTaskThread = []
         DaspCommon.assignedPortDict = {}
+
+        DaspCommon.mapSocket = MapSocket(DaspCommon.nodeID, DaspCommon.GuiInfo[0], DaspCommon.GuiInfo[2])
 
     def run(self):
         #创建接口服务器

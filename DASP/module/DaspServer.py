@@ -114,7 +114,15 @@ class BaseServer(DaspCommon):
         thread.start()
         # self.send_recv(nbrID, data)
 
-        
+    def pingIDWaited(self,nbrID):
+        """
+        尝试通过TCP连接指定节点，并等待
+        """
+        data = {
+            "key": "ping",
+            "id": DaspCommon.nodeID
+        }
+        self.send_recv(nbrID, data)
 
     def send(self,id,data):
         """
@@ -195,7 +203,7 @@ class BaseServer(DaspCommon):
         self.deleteNbrID(id)
         for key in BaseServer.TaskDict:
             BaseServer.TaskDict[key].deleteTaskNbrID(id)       
-        self.sendRunDatatoGUI(f"Connection to neighbor node {id} has been deleted.") 
+        self.sendRunDatatoGUI(f"Disconnected with node {id}.") 
         
     def addTaskNbrID(self, id, direction):
         """
@@ -219,30 +227,41 @@ class BaseServer(DaspCommon):
         """
         self.sendtoGUIbase(info, "RunFlag", DappName)
 
-    def updateTopology(self, location):
+    def updateTopology(self, location, waited = True):
         """
         更新节点位置，维护节点之间的拓扑关系,可根据距离关系只连接最近的几个
         """
         # ['3', '6', '5', '9'] [5.0, 7.211, 9.22, 9.849]
-        topology, nbrDistance = self.getTopoFromMap(location)
-        if topology:
+        topology, nbrDistance = DaspCommon.mapSocket.getTopoFromMapSync(location)
+        while set(topology) != set(DaspCommon.nbrID):
             # 删除不在拓扑中的节点
-            for node in DaspCommon.nbrID:
+            for node in reversed(DaspCommon.nbrID):
                 if node not in topology:
                     self.deleteTaskNbrID(node)
             # 添加新的节点
             for i,node in enumerate(topology):
                 if node not in DaspCommon.nbrID:
-                    # DaspCommon.wiredlessNbrID.append(node)
                     DaspCommon.nbrID.append(node)
+                    DaspCommon.addNbrIDFlag[node] = False
                     if DaspCommon.nbrDirection:
                         direction = max(DaspCommon.nbrDirection) + 1
                     else:
                         direction = 1
                     DaspCommon.nbrDirection.append(direction)
-                    self.pingID(node)
-                    self.sendRunDatatoGUI(f"Connected with node {node}")
+                    if waited:
+                        self.pingIDWaited(node)
+                    else:
+                        self.pingID(node)
                     self.addTaskNbrID(node,direction)
+                    # DaspCommon.wiredlessNbrID.append(node)
+                    DaspCommon.addNbrIDFlag[node] = True
+                    self.sendRunDatatoGUI(f"Connected with node {node}.")
+            # if waited:
+            while True:
+                # 遍历所有节点，直到所有节点的addNbrIDFlag存在且都为True
+                if set(DaspCommon.nbrID) == set(DaspCommon.addNbrIDFlag.keys()) and all(DaspCommon.addNbrIDFlag.values()):
+                    break
+                time.sleep(0.01)
 
 class TaskServer(BaseServer):
     """外部交互服务器
@@ -312,20 +331,22 @@ class TaskServer(BaseServer):
             t.start()
             DaspCommon.commServerThread.append(t)
             DaspCommon.assignedPortDict[id] = commserver.get_bound_port()
-            
         conn.sendall(str(DaspCommon.assignedPortDict[id]).encode())
 
-        #动态加入邻居节点(比如邻居断开了等等)
-        if id not in DaspCommon.nbrID:
-            DaspCommon.nbrID.append(id)
-            if DaspCommon.nbrDirection:
-                direction = max(DaspCommon.nbrDirection) + 1
-            else:
-                direction = 1
-            DaspCommon.nbrDirection.append(direction)
-            self.pingID(id)
-            self.sendRunDatatoGUI(f"Connected with node {id}")
-            self.addTaskNbrID(id,direction)
+        #动态加入邻居节点，暂时删除、避免异步导致的问题，现有拓扑已是双向，无需再次添加
+        # if id not in DaspCommon.nbrID:
+        #     DaspCommon.nbrID.append(id)
+        #     DaspCommon.addNbrIDFlag[id] = False
+        #     if DaspCommon.nbrDirection:
+        #         direction = max(DaspCommon.nbrDirection) + 1
+        #     else:
+        #         direction = 1
+        #     DaspCommon.nbrDirection.append(direction)
+        #     self.pingID(id)
+        #     self.sendRunDatatoGUI(f"Connected with node {id}")
+        #     self.addTaskNbrID(id,direction)
+        #     # 放在最后以标志连接成功
+        #     DaspCommon.addNbrIDFlag[id] = True
 
     def newtask(self, jdata): 
         """
@@ -382,7 +403,7 @@ class TaskServer(BaseServer):
             if DaspCommon.systemFlag == False:  
                 # 第一轮启动更新无线拓扑
                 if DaspCommon.wiredless:
-                    self.updateTopology(DaspCommon.location)
+                    self.updateTopology(DaspCommon.location, waited = False)
                 # 第一轮开启系统自启动任务进程
                 self.startthreads = threading.Thread(target=self.autostarttask, args=())
                 self.startthreads.start()
@@ -631,6 +652,9 @@ class CommServer(BaseServer):
         while(name not in BaseServer.TaskDict):time.sleep(0.01)
         while(not hasattr(BaseServer.TaskDict[name],'loadflag')):time.sleep(0.01)
         while(BaseServer.TaskDict[name].loadflag == 0):time.sleep(0.01)
+        while(jdata["id"] not in BaseServer.TaskDict[name].taskNbrID):
+            self.sendRunDatatoGUI(f"Waiting for {jdata['id']} to join the task.")
+            time.sleep(0.01)
         index = BaseServer.TaskDict[name].taskNbrID.index(jdata["id"])
         if type == 1:
             BaseServer.TaskDict[name].nbrSyncStatus[index] = 1

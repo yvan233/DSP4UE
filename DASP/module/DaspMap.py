@@ -12,6 +12,11 @@ from math import radians, cos, sin, asin, sqrt
 class DaspMap:
     def __init__(self, port = 50001):
         self.port = port
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        localIP = socket.gethostbyname(socket.gethostname())
+        self.socket.bind((localIP, self.port))
+        print ("MapServer: {}:{}".format(localIP,self.port))
+
         self.load()
         self.DistanceMatrix = self.getDistanceMatrix()
 
@@ -24,31 +29,32 @@ class DaspMap:
         """
         更新节点位置，维护节点之间的拓扑关系
         """
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        localIP = socket.gethostbyname(socket.gethostname())
-        s.bind((localIP, self.port))
-        print ("MapServer: {}:{}".format(localIP,self.port))
         while 1:
             try:
-                data, addr = s.recvfrom(100000000)
+                data, addr = self.socket.recvfrom(100000000)
                 jdata = json.loads(data)
             except Exception:
                 print ("MapServer error!")
             else:
-                if jdata["key"] == "GetTopology":
-                    nodeid = jdata["id"]
+                if jdata["key"] == "GetTopologySync":
+                    nodeId = jdata["id"]
                     location = jdata["location"]
-                    self.updateDistanceMatrix(nodeid,location)
-                    nodeTopology,nodeNbrDistance = self.getNodeTopology(nodeid)
+                    self.nodeAddr[nodeId] = addr
+                    self.updateDistanceMatrixSync(nodeId,location)
+                elif jdata["key"] == "GetTopologyAsync":
+                    nodeId = jdata["id"]
+                    location = jdata["location"]
+                    self.nodeAddr[nodeId] = addr
+                    self.updateDistanceMatrix(nodeId,location)
+                    nodeTopology,nodeNbrDistance = self.getNodeTopology(nodeId)
                     data = {
                         "key": "Topology",
-                        "id": nodeid,
+                        "id": nodeId,
                         "time": datetime.datetime.now().strftime("%m-%d %H:%M:%S"),
                         "topology": nodeTopology,
                         "nbrDistance": nodeNbrDistance
                     }
-                    s.sendto(json.dumps(data).encode('utf-8'), addr)
-                    # print(nodeTopology,nodeNbrDistance)
+                    self.socket.sendto(json.dumps(data).encode('utf-8'), addr)
                 else:
                     print ("Data error!")
 
@@ -75,6 +81,8 @@ class DaspMap:
                     location[ele["ID"]] = ele["Location"]
         self.nodes = nodes
         self.nodeLocation = location
+        self.nodeFlag = {node:0 for node in self.nodes}
+        self.nodeAddr = {}
         # print(self.nodeLocation)
 
     def getDistanceMatrix(self):
@@ -91,13 +99,37 @@ class DaspMap:
                     DistanceMatrix[i][j] = self.coordDistance(self.nodeLocation[self.nodes[i]],self.nodeLocation[self.nodes[j]])
         return DistanceMatrix
 
-    def updateDistanceMatrix(self, NodeId, newLocation):
+    def updateDistanceMatrixSync(self, nodeId, newLocation):
         """
         更新节点之间的距离矩阵
         """
-        self.nodeLocation[NodeId] = newLocation
+        self.nodeLocation[nodeId] = newLocation
+        self.nodeFlag[nodeId] = 1   # 标记节点位置已经更新
+        while all(self.nodeFlag.values()):
+            # 说明位置信息收集完成
+            self.nodeFlag = {node:0 for node in self.nodes}
+            self.DistanceMatrix = self.getDistanceMatrix()
+            topology,nbrDistance = self.getTopology()
+            for nodeId in self.nodes:
+                nodeTopology = topology[nodeId]
+                nodeNbrDistance = nbrDistance[nodeId]
+                data = {
+                    "key": "Topology",
+                    "id": nodeId,
+                    "time": datetime.datetime.now().strftime("%m-%d %H:%M:%S"),
+                    "topology": nodeTopology,
+                    "nbrDistance": nodeNbrDistance
+                }
+                self.socket.sendto(json.dumps(data).encode('utf-8'), self.nodeAddr[nodeId])
+        return 0
+    
+    def updateDistanceMatrix(self, nodeId, newLocation):
+        """
+        更新节点之间的距离矩阵
+        """
+        self.nodeLocation[nodeId] = newLocation
         nodeNum = len(self.nodes)
-        nodeIndex = self.nodes.index(NodeId)
+        nodeIndex = self.nodes.index(nodeId)
         for i in range(nodeNum):
             for j in range(nodeNum):
                 if (i == nodeIndex or j == nodeIndex) and i != j:
@@ -132,11 +164,11 @@ class DaspMap:
                                 nbrDistance[self.nodes[i]].append(self.DistanceMatrix[i][j])
         return topology,nbrDistance
 
-    def getNodeTopology(self, NodeId):
+    def getNodeTopology(self, nodeId):
         """
         获取某个节点的邻居拓扑
         """
-        i = self.nodes.index(NodeId)
+        i = self.nodes.index(nodeId)
         nodeNum = len(self.nodes)
         nodeTopology = []
         nodeNbrDistance = []
@@ -156,7 +188,6 @@ class DaspMap:
                             nodeTopology.append(self.nodes[j])
                             nodeNbrDistance.append(self.DistanceMatrix[i][j])  
         return nodeTopology,nodeNbrDistance
-
 
     # 两点坐标之间的距离
     def coordDistance(self, location1,location2):
