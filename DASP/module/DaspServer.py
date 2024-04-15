@@ -262,6 +262,7 @@ class BaseServer(DaspCommon):
                 if set(DaspCommon.nbrID) == set(DaspCommon.addNbrIDFlag.keys()) and all(DaspCommon.addNbrIDFlag.values()):
                     break
                 time.sleep(0.01)
+        return topology, nbrDistance
 
 class TaskServer(BaseServer):
     """外部交互服务器
@@ -564,7 +565,7 @@ class CommServer(BaseServer):
         回应任务发送数据信号，并存储数据
         """
         name = jdata["DappName"]
-    
+        while(jdata["id"] not in BaseServer.TaskDict[name].taskNbrID): time.sleep(0.01)
         index = BaseServer.TaskDict[name].taskNbrID.index(jdata["id"])
         if jdata["type"] == "value":
             BaseServer.TaskDict[name].nbrData[index] = jdata["data"]
@@ -652,9 +653,7 @@ class CommServer(BaseServer):
         while(name not in BaseServer.TaskDict):time.sleep(0.01)
         while(not hasattr(BaseServer.TaskDict[name],'loadflag')):time.sleep(0.01)
         while(BaseServer.TaskDict[name].loadflag == 0):time.sleep(0.01)
-        while(jdata["id"] not in BaseServer.TaskDict[name].taskNbrID):
-            self.sendRunDatatoGUI(f"Waiting for {jdata['id']} to join the task.")
-            time.sleep(0.01)
+        while(jdata["id"] not in BaseServer.TaskDict[name].taskNbrID): time.sleep(0.01)
         index = BaseServer.TaskDict[name].taskNbrID.index(jdata["id"])
         if type == 1:
             BaseServer.TaskDict[name].nbrSyncStatus[index] = 1

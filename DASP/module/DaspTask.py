@@ -10,7 +10,7 @@ import time
 import traceback
 
 from ..pysnooperdb.tracer import Tracer as snoop
-from . import DaspCommon,TcpSocket
+from . import DaspCommon
 
 class Task(DaspCommon):
     """任务类
@@ -589,6 +589,7 @@ class Task(DaspCommon):
         """
         更新生成树
         """
+        self.syncNode()
         self.commPattern(InitFlag = False, MaintainFlag = False)
         tree = {
             "childDirection": self.childDirection,
@@ -856,4 +857,5 @@ class Task(DaspCommon):
         """
         更新节点位置，维护节点之间的拓扑关系
         """
-        self.owner.updateTopology(location)
+        topology, nbrDistance = self.owner.updateTopology(location)
+        return topology, nbrDistance

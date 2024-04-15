@@ -5,7 +5,7 @@ sys.path.insert(1,".")
 from DASP.module import Node,Moniter,DaspMap
 from DASP.control import ControlMixin
 
-nodeNum = 9  # Number /of nodes
+nodeNum = 9  # Number of nodes
 startNode = "1" # Starting node ID
 nodelist = [] # List of node processes
 controlMixin = ControlMixin("Pc") # Collection of control functions

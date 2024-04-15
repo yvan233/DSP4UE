@@ -61,7 +61,7 @@ class AirSimUavAgent():
         self.uav.armDisarm(True,self.name) if not control_flag else self.uav.enableApiControl(False,self.name)
         time.sleep(0.01)
 
-    def get_state(self):
+    def get_full_state(self):
         # 获取无人机状态
         DIG = 6
         State = self.uav.getMultirotorState(self.name)
@@ -78,6 +78,21 @@ class AirSimUavAgent():
         }
         return state
 
+    def get_state(self):
+        # 获取无人机状态
+        DIG = 6
+        State = self.uav.getMultirotorState(self.name)
+        kinematics = State.kinematics_estimated
+        state = {
+            "id":self.name,
+            "timestamp":str(State.timestamp),
+            "position":[round(ele,DIG)+ self.origin_pos[i] for i,ele in enumerate(kinematics.position.to_numpy_array().tolist())],
+            "orientation":[round(i,DIG) for i in airsim.to_eularian_angles(kinematics.orientation)],
+            "linear_velocity":[round(i,DIG) for i in kinematics.linear_velocity.to_numpy_array().tolist()],
+            "linear_acceleration":[round(i,DIG) for i in kinematics.linear_acceleration.to_numpy_array().tolist()]
+        }
+        return state
+    
     def get_gps(self):
         # 获取无人机的GPS信息
         gps = self.uav.getGpsData(vehicle_name=self.name).gnss.geo_point
