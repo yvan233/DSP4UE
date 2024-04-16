@@ -126,7 +126,7 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
 
     if uavid == 0:
         # 速度控制，会有静差
-        # uav.move_by_velocity(1, 0, 0, duration = 100, yaw_mode=airsim.YawMode(True, 0))
+        # uav.move_by_velocity(1, 0, 0, duration = 100, yaw_mode=airsim.YawMode(False, 0))
         while True:
             last_time = time.time()
             state = uav.get_state()
@@ -171,7 +171,7 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
             if print_iter % 10 == 0:
                 print_iter = 0
                 self.sendDatatoGUI([avoid_vel,[vx, vy, vz]])
-            uav.move_by_velocity(vx, vy, vz, duration = 1, yaw_mode=airsim.YawMode(True, 0))
+            uav.move_by_velocity(vx, vy, vz, duration = 1, yaw_mode=airsim.YawMode(False, 0))
 
     self.sendDatatoGUI({name:uav.get_state()})
     return 0
