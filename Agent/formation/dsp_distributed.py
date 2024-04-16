@@ -24,7 +24,7 @@ for i in range(nodeNum):
     nodelist.append(node)
 
 time.sleep(2)
-DappName = "LF_consis"
+DappName = "LF_consensus"
 print("start task: "+DappName)
 controlMixin.startTask(DappName,startNode)
 
