@@ -4,14 +4,14 @@ from DASP.module import Task, DaspCommon
 from Agent.AirSimUavAgent import AirSimUavAgent
 import pulp as pl
 from scipy.optimize import linear_sum_assignment
-from Dapp.LF_consensus.formation_dict import formation_dict_9
+from Agent.formation.formation_dict import formation_dict_9
 import airsim
 import numpy as np
 import random
 import copy
 import csv
 # 用户自定义函数区
-Rate = 15
+Rate = 10
 topoMaintTime = 2
 UE_ip = "127.0.0.1"
 origin_geopoint = (116.16872381923261, 40.05405620434274,150)
@@ -39,9 +39,60 @@ def follower_control(leader_state, follower_state, target_leader_state, target_f
         vz = vz / v_mag * v_max        
     return vx, vy, vz
 
+def follower_control_acc(leader_state, follower_state, target_leader_state, target_follower_state, avoid_accel):
+    Kp = 1.0
+    gama = (4.0 / Kp) ** 0.5
+    Kp_avoid = 2.0 #避障系数
+    a_max = 2.0 #最大加速度速度
+    
+    ax = Kp*(leader_state['position'][0] - follower_state['position'][0] - target_leader_state[0] + target_follower_state[0]) \
+        + gama * (leader_state['linear_velocity'][0] - follower_state['linear_velocity'][0])    
+    ay = Kp*(leader_state['position'][1] - follower_state['position'][1] - target_leader_state[1] + target_follower_state[1]) \
+        + gama * (leader_state['linear_velocity'][1] - follower_state['linear_velocity'][1])
+    az = Kp*(leader_state['position'][2] - follower_state['position'][2] - target_leader_state[2] + target_follower_state[2]) \
+        + gama * (leader_state['linear_velocity'][2] - follower_state['linear_velocity'][2])
+    ax += Kp_avoid * avoid_accel[0]
+    ay += Kp_avoid * avoid_accel[1]
+    az += Kp_avoid * avoid_accel[2]
+    a_mag = (ax**2+ay**2+az**2)**0.5
+    if a_mag > a_max:
+        ax = ax / a_mag * a_max
+        ay = ay / a_mag * a_max
+        az = az / a_mag * a_max        
+    return ax, ay, az
+
+def follower_consensus_control_acc(leaders_state, follower_state, leaders_target_state, target_follower_state, avoid_accel):
+    Kp = 1.0
+    gama = (4.0 / Kp) ** 0.5
+    Kp_avoid = 3 #避障系数
+    a_max = 2.0 #最大速度
+    ax = 0
+    ay = 0
+    az = 0
+
+    for leader_state, target_leader_state in zip(leaders_state, leaders_target_state):
+        ax += Kp*(leader_state['position'][0] - follower_state['position'][0] - target_leader_state[0] + target_follower_state[0]) \
+            + gama * (leader_state['linear_velocity'][0] - follower_state['linear_velocity'][0])    
+        ay += Kp*(leader_state['position'][1] - follower_state['position'][1] - target_leader_state[1] + target_follower_state[1]) \
+            + gama * (leader_state['linear_velocity'][1] - follower_state['linear_velocity'][1])   
+        az += Kp*(leader_state['position'][2] - follower_state['position'][2] - target_leader_state[2] + target_follower_state[2]) \
+            + gama * (leader_state['linear_velocity'][2] - follower_state['linear_velocity'][2])   
+    ax = ax / len(leaders_state)
+    ay = ay / len(leaders_state)
+    az = az / len(leaders_state)
+    ax += Kp_avoid * avoid_accel[0]
+    ay += Kp_avoid * avoid_accel[1]
+    az += Kp_avoid * avoid_accel[2]
+    v_mag = (ax**2+ay**2+az**2)**0.5
+    if v_mag > a_max:
+        ax = ax / v_mag * a_max
+        ay = ay / v_mag * a_max
+        az = az / v_mag * a_max        
+    return ax, ay, az
+
 def follower_consensus_control(leaders_state, follower_state, leaders_target_state, target_follower_state, avoid_vel):
     Kp = 1.0
-    Kp_avoid = 2.5 #避障系数
+    Kp_avoid = 3 #避障系数
     v_max = 2.0 #最大速度
     vx = 0
     vy = 0
@@ -62,12 +113,6 @@ def follower_consensus_control(leaders_state, follower_state, leaders_target_sta
         vx = vx / v_mag * v_max
         vy = vy / v_mag * v_max
         vz = vz / v_mag * v_max        
-    # if abs(vx) < 0.01:
-    #     vx = 0
-    # if abs(vy) < 0.01:
-    #     vy = 0
-    # if abs(vz) < 0.01:
-    #     vz = 0
     return vx, vy, vz
 
 def avoid_control(uav_state):
@@ -199,7 +244,7 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
 
     if uavid == 0:
         # 速度控制，会有静差
-        # uav.move_by_velocity(1, 0, 0, duration = 100, yaw_mode=airsim.YawMode(True, 0))
+        uav.move_by_velocity(1, 0, 0, duration = 100, yaw_mode=airsim.YawMode(True, 0))
         while True:
             last_time = time.time()
             state = uav.get_state()
@@ -279,7 +324,7 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
             allState = copy.deepcopy(nbrState)
             allState.insert(0,state)
             allStateDict = {uav['id']:uav for uav in allState}
-            avoid_vel = avoid_control_node(allStateDict)
+            avoid_acc = avoid_control_node(allStateDict)
             
 
             # 根据邻居距离自己的距离排序
@@ -295,24 +340,18 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
 
             follower_state = state
             # 计算偏移量
-            vx, vy, vz = follower_consensus_control(leaders_state, follower_state, leaders_target_state, target_follower_state, avoid_vel)
+            ax, ay, az = follower_consensus_control_acc(leaders_state, follower_state, leaders_target_state, target_follower_state, avoid_acc)
             # vx = alpha*vx + (1-alpha)*vx_last
             # vy = alpha*vy + (1-alpha)*vy_last
             # vz = alpha*vz + (1-alpha)*vz_last
             # vx_last, vy_last, vz_last = vx, vy, vz
 
             # 偏航角始终为0
-            uav.move_by_velocity(vx, vy, vz, duration = 1, yaw_mode=airsim.YawMode(True, 0))
-            
-            # if print_iter % 3 == 0:
-            #     with open(f'uav{uavid}_velocity.csv', 'a', newline='') as f:
-            #         writer = csv.writer(f)
-            #         writer.writerow([time.time(), state['position'][0],state['position'][1],state['position'][2], vx, vy, vz])
-
+            uav.move_by_acceleration(ax, ay, az, duration = 1)
 
             if print_iter % (topoMaintTime * Rate) == 0:
                 # 每10次更新下拓扑
-                self.sendDatatoGUI([avoid_vel,[vx, vy, vz]])
+                self.sendDatatoGUI([avoid_acc,[ax, ay, az]])
                 print_iter = 0
                 location = DaspCommon.location
                 location["X"] = state['position'][0]
@@ -321,7 +360,7 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
                 topology, nbrDistance = self.updateTopology(location)
                 nbrDirection = self.taskNbrDirection
                 self.sendDatatoGUI(f"leaders_ids:{leaders_ids}, now_nbr_nodes:{topology}")
-                uav.move_by_velocity(vx, vy, vz, duration = 1, yaw_mode=airsim.YawMode(True, 0))
+                uav.move_by_acceleration(ax, ay, az, duration = 1)
             print_iter += 1
 
             

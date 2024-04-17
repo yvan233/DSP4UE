@@ -11,7 +11,7 @@ import random
 import copy
 import csv
 # 用户自定义函数区
-Rate = 15
+Rate = 10
 topoMaintTime = 2
 UE_ip = "127.0.0.1"
 origin_geopoint = (116.16872381923261, 40.05405620434274,150)
@@ -41,7 +41,7 @@ def follower_control(leader_state, follower_state, target_leader_state, target_f
 
 def follower_consensus_control(leaders_state, follower_state, leaders_target_state, target_follower_state, avoid_vel):
     Kp = 1.0
-    Kp_avoid = 2.5 #避障系数
+    Kp_avoid = 3 #避障系数
     v_max = 2.0 #最大速度
     vx = 0
     vy = 0

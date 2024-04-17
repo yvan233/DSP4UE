@@ -8,7 +8,7 @@ import sys
 import socket
 from threading import Thread
 from pymap3d import ned2geodetic,geodetic2ned
-
+import math
 def gps2airsim(lon,lat,h,lon0,lat0,h0):
     '''
     说明：GPS（WGS84）坐标转Airsim坐标
@@ -55,7 +55,7 @@ class AirSimUavAgent():
 
     def connect(self, ip, control_flag):
         # 连接AirSim模拟器
-        self.uav = airsim.MultirotorClient(ip=ip)
+        self.uav = airsim.MultirotorClient(ip=ip, port = 41451)
         self.uav.confirmConnection()
         self.uav.enableApiControl(True,self.name) if not control_flag else self.uav.enableApiControl(False,self.name)
         self.uav.armDisarm(True,self.name) if not control_flag else self.uav.enableApiControl(False,self.name)
@@ -213,6 +213,47 @@ class AirSimUavAgent():
         # return image, data
         return encoded_jpeg
 
+
+    def move_by_acceleration(self, ax_cmd, ay_cmd, az_cmd, duration, waited=False):
+        """
+        四旋翼加速度控制，不改变偏航角
+        :param client: AirSim连接客户端
+        :param ax_cmd: x轴方向加速度
+        :param ay_cmd: y轴方向加速度
+        :param az_cmd: z轴方向加速度
+        :param duration: 命令持续时间
+        :param waited: 命令是否阻塞
+        :param vehicle_name: 无人机名称
+        :return: 无
+        """
+        # 读取自身yaw角度
+        state = self.get_state()
+        angles = state['orientation']
+        z = state['position'][2]
+        yaw_my = angles[2]
+        g = 9.8  # 重力加速度
+        sin_yaw = math.sin(yaw_my)
+        cos_yaw = math.cos(yaw_my)
+        A_psi = np.array([[cos_yaw, sin_yaw], [-sin_yaw, cos_yaw]])
+        A_psi_inverse = np.linalg.inv(A_psi)
+        angle_h_cmd = 1 / (g + az_cmd) * np.dot(A_psi_inverse, np.array([[ax_cmd], [ay_cmd]]))
+        theta = math.atan(angle_h_cmd[0, 0])
+        phi = math.atan(angle_h_cmd[1, 0] * math.cos(theta))
+        # client.moveToZAsync(z_cmd, vz).join()
+        # client.moveByRollPitchYawZAsync(phi, theta, 0, z_cmd, duration)
+        # throttle = -0.061 * az_cmd + 0.596
+        throttle = -0.061 * az_cmd + 0.0015 * math.sqrt(ax_cmd*ax_cmd+ay_cmd*ay_cmd) + 0.596 
+            
+        if throttle < 0:
+            throttle = 0
+        elif throttle > 1:
+            throttle = 1
+        if waited:
+            self.uav.moveByRollPitchYawThrottleAsync(phi, theta, 0, throttle, duration, vehicle_name=self.name).join()
+        else:
+            self.uav.moveByRollPitchYawThrottleAsync(phi, theta, 0, throttle, duration, vehicle_name=self.name)
+
+
 if __name__ == '__main__':
     UE_ip = "127.0.0.1"
     origin_pos = [0, 0, -2]
@@ -224,13 +265,19 @@ if __name__ == '__main__':
         (116.16878256197862, 40.05405523280805, 152.73081970214844),
         (116.16872517033799, 40.05405619907175, 152.8238983154297)]
 
-    uav = AirSimUavAgent(origin_geopoint, ip = UE_ip, vehicle_name= "Uav1", origin_pos=origin_pos)
+    uav = AirSimUavAgent(origin_geopoint, ip = UE_ip, vehicle_name= "Uav0", origin_pos=origin_pos)
 
     print(uav.get_state())
     print(uav.get_collision())
     print(uav.get_gps())
 
     uav.take_off(waited = True)
-    uav.move_on_gps_path(gps_path, velocity=1, waited=True)
+    # uav.move_to_position(0,0,-10,1,waited=True)
+    uav.move_by_acceleration(0.5,0.5,-0.1,10,waited=False)
+    while True:
+        print(uav.get_state()["linear_acceleration"])
+        time.sleep(0.1)
+
+    # uav.move_on_gps_path(gps_path, velocity=1, waited=True)
 
     uav.land(waited = True)
