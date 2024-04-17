@@ -4,7 +4,7 @@ from DASP.module import Task
 from Agent.AirSimUavAgent import AirSimUavAgent
 import pulp as pl
 from scipy.optimize import linear_sum_assignment
-from Dapp.LF_assignment.formation_dict import formation_dict_9
+from Agent.formation.formation_dict import formation_dict_9
 import airsim
 import numpy as np
 

@@ -224,6 +224,7 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
     uav = connect_airsim(name, formation["origin"][uavid])
     uav.take_off(waited = True)
     
+    # Rate = 10
     sptIter = 0
     localLeaderNumMax = 3
 
@@ -244,7 +245,7 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
     if target_formation_index[uavid] == 0:
     # if uavid == 0:
         # 速度控制，会有静差
-        uav.move_by_velocity(2, 0, 0, duration = 100, yaw_mode=airsim.YawMode(True, 0))
+        uav.move_by_velocity(1, 0, 0, duration = 100, yaw_mode=airsim.YawMode(True, 0))
         while True:
             last_time = time.time()
             state = uav.get_state()

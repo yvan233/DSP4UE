@@ -175,8 +175,8 @@ def get_cost_matrix(origin_formation, target_formation):
     cost_matrix = np.linalg.norm(origin_formation[:, None] - target_formation, axis=2)
     return cost_matrix
 
-    #匈牙利算法，以使得队形切换代价最小
 def hungarian_algorithm(origin_formation, target_formation):
+    #匈牙利算法，以使得队形切换代价最小
     # 计算两个队形的距离矩阵
     adj_matrix = get_cost_matrix(origin_formation, target_formation)
     row_index, col_index = linear_sum_assignment(adj_matrix)
@@ -184,11 +184,9 @@ def hungarian_algorithm(origin_formation, target_formation):
     # new_formation = np.array(target_formation)[col_ind]
     return col_index + 1
 
-    #混合整数线性规划,以使得队形切换时间最小
 def milp_algorithm(origin_formation, target_formation):
-
-    # adj_matrix = get_cost_matrix(origin_formation, target_formation)
-    adj_matrix = np.linalg.norm(np.array(origin_formation)[:, None] - np.array(target_formation), axis=2)
+    #混合整数线性规划,以使得队形切换时间最小
+    adj_matrix = get_cost_matrix(origin_formation, target_formation)
     prob = pl.LpProblem("example", pl.LpMinimize)
     size = range(adj_matrix.shape[0])
     # 创建变量
@@ -212,11 +210,9 @@ def milp_algorithm(origin_formation, target_formation):
     for i in size:
         for j in size:
             if c[i][j].varValue == 1:
-                change_ids[i] = j
+                change_ids[i] = j + 1
     return change_ids
 
-
-#  
 def taskFunction(self:Task, id, nbrDirection, datalist):
     uavid = int(id)-1
     name = f'Uav{uavid}'
@@ -224,6 +220,7 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
     uav = connect_airsim(name, formation["origin"][uavid])
     uav.take_off(waited = True)
     
+    # Rate = 10
     sptIter = 0
     localLeaderNumMax = 3
 
@@ -235,16 +232,16 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
     location["Z"] = state['position'][2]
     topology, nbrDistance = self.updateTopology(location)
 
+    # nbrMessage = self.transmitData(nbrDirection,[state for _ in range(len(nbrDirection))])  
+    # nbrDirection, nbrData = nbrMessage 
 
     origin_formation = formation["origin"]
     target_formation = formation["triangle"]
     print_iter = 0
 
-    target_formation_index = milp_algorithm(origin_formation, target_formation)
-    if target_formation_index[uavid] == 0:
-    # if uavid == 0:
+    if uavid == 0:
         # 速度控制，会有静差
-        uav.move_by_velocity(2, 0, 0, duration = 100, yaw_mode=airsim.YawMode(True, 0))
+        uav.move_by_velocity(1, 0, 0, duration = 100, yaw_mode=airsim.YawMode(True, 0))
         while True:
             last_time = time.time()
             state = uav.get_state()
@@ -272,10 +269,10 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
     else:
         
         # target_formation_index = hungarian_algorithm(origin_formation, target_formation)
-        # target_formation_index = milp_algorithm(origin_formation, target_formation)
-        # leader_id = int(self.leader)-1
-        target_leader_state = target_formation[0]
-        target_follower_state = target_formation[target_formation_index[uavid]] 
+        target_formation_index = milp_algorithm(origin_formation, target_formation)
+        leader_id = int(self.leader)-1
+        target_leader_state = target_formation[leader_id]
+        target_follower_state = target_formation[target_formation_index[uavid-1]]  #这里默认了第一个是leader,修正下标
         Q = - np.linalg.norm(np.array(target_leader_state) - np.array(target_follower_state))
         self.sendDatatoGUI(f"target_follower_state:{target_follower_state}")
 
