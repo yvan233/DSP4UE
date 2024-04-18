@@ -402,7 +402,7 @@ class Task(DaspCommon):
         """
         start comm pattern
         """
-        self.commThread = threading.Thread(target=self.commPattern, args=(True,False,))
+        self.commThread = threading.Thread(target=self.commPattern, args=(None, True,False,))
         self.commThread.start()
 
     def floodLeaderElection(self):
@@ -420,9 +420,9 @@ class Task(DaspCommon):
         if self.leader == DaspCommon.nodeID:
             self.sendDatatoGUI("This is the leader")
 
-    def commPattern(self, InitFlag = False, MaintainFlag = False):
+    def commPattern(self, minValue = None, InitFlag = False, MaintainFlag = False):
         """
-        communication pattern, Initflag:是否初始化，MaintainFlag:是否维护
+        communication pattern, minValue排序依据的value, Initflag:是否初始化，MaintainFlag:是否维护
         """
         def reset():
             flag = False
@@ -431,20 +431,20 @@ class Task(DaspCommon):
             edgesFlag = [False] * len(nbrDirection)
             edges = dict(zip(nbrDirection,edgesFlag))
             return flag,parent,child,edges
-        def alst(nbrDirection,nodeID,flag,parent,child,edges,min_uid,j,data,token):
+        def alst(nbrDirection,value,flag,parent,child,edges,min_value,j,data,token):
             """
             Asynchronous Leaderless Spanning Tree algorithm 
             """
             leader_state = "non-leader"
             while True:
-                if token <= min_uid:
-                    if token < min_uid:
-                        min_uid = token
+                if token <= min_value:
+                    if token < min_value:
+                        min_value = token
                         flag,parent,child,edges = reset()
                     edges[j] = True
                     if data == "end" and j == parent:
                         for ele in child:
-                            self.sendAlstData(ele,["end",min_uid]) 
+                            self.sendAlstData(ele,["end",min_value]) 
                         break
                     elif data == "join":
                         if j not in child:
@@ -455,17 +455,17 @@ class Task(DaspCommon):
                             parent = j 
                             for ele in nbrDirection:
                                 if ele != j:
-                                    self.sendAlstData(ele,["search",min_uid])
+                                    self.sendAlstData(ele,["search",min_value])
                     if all(edges.values()):
-                        self.leader = min_uid
-                        if min_uid == nodeID:
+                        self.leader = min_value
+                        if min_value == value:
                             leader_state = "leader"
                             for ele in child:
-                                self.sendAlstData(ele,["end",min_uid]) 
+                                self.sendAlstData(ele,["end",min_value]) 
                             break
                         else:
                             leader_state = "non-leader"  
-                            self.sendAlstData(parent,["join",min_uid]) 
+                            self.sendAlstData(parent,["join",min_value]) 
                 j,(data,token) = self.getAlstData()
                 # self.sendDatatoGUI(f"j:{j},data:{data},token:{token}")
             return leader_state,parent,child
@@ -485,18 +485,22 @@ class Task(DaspCommon):
         nbrDirection = self.taskNbrDirection
         nbrID = self.taskNbrID
         nodeID = DaspCommon.nodeID
+        if minValue != None:
+            value = minValue
+        else:
+            value = copy.deepcopy(DaspCommon.nodeID)  # 如果没有value传入，那么默认为节点ID
         flag,parent,child,edges = reset()
-        min_uid = nodeID
+        min_value = value
         flag = True
         step = 1
         if nbrDirection:
             for ele in nbrDirection:
-                self.sendAlstData(ele,["search",min_uid])
+                self.sendAlstData(ele,["search",min_value])
             j,(data,token) = self.getAlstData()
             # self.sendDatatoGUI(f"j:{j},data:{data},token:{token}")
             while True:
                 if step == 1:
-                    __,parent,child = alst(nbrDirection,nodeID,flag,parent,child,edges,min_uid,j,data,token)
+                    __,parent,child = alst(nbrDirection,value,flag,parent,child,edges,min_value,j,data,token)
                     step = 2
                     # generate complete
                     setTree(parent,child)
@@ -514,11 +518,11 @@ class Task(DaspCommon):
                                 self.parentID = DaspCommon.nodeID
                                 self.parentDirection = -1
                                 flag,parent,child,edges = reset()
-                                min_uid = nodeID
+                                min_value = value
                                 flag = True
                                 step = 1
                                 for ele in nbrDirection:
-                                    self.sendAlstData(ele,["search",min_uid])
+                                    self.sendAlstData(ele,["search",min_value])
                                 j,(data,token) = self.getAlstData()
                             elif direction in self.childDirection:
                                 index = self.childDirection.index(direction) 
@@ -539,12 +543,12 @@ class Task(DaspCommon):
                                     self.parentID = DaspCommon.nodeID
                                     self.parentDirection = -1
                                     flag,parent,child,edges = reset()
-                                    min_uid = nodeID
+                                    min_value = value
                                     flag = True
                                     step = 1
-                                    if token > min_uid :
+                                    if token > min_value :
                                         for ele in nbrDirection:
-                                            self.sendAlstData(ele,["search",min_uid])
+                                            self.sendAlstData(ele,["search",min_value])
                                 else:
                                     if j in self.childDirection:
                                         index = self.childDirection.index(j) 
@@ -572,12 +576,12 @@ class Task(DaspCommon):
                                     # after receiving the alst message from its neighbor
                                     else:
                                         flag,parent,child,edges = reset()
-                                        min_uid = nodeID
+                                        min_value = value
                                         flag = True
                                         step = 1
-                                        if token > min_uid:
+                                        if token > min_value:
                                             for ele in nbrDirection:
-                                                self.sendAlstData(ele,["search",min_uid])
+                                                self.sendAlstData(ele,["search",min_value])
                                 break
 
                     time.sleep(0.01)
@@ -585,12 +589,12 @@ class Task(DaspCommon):
             self.starttask()
             self.treeWaitFlag = False
     
-    def updateSpanningTree(self):
+    def updateSpanningTree(self, minValue = None):
         """
         更新生成树
         """
         self.syncNode()
-        self.commPattern(InitFlag = False, MaintainFlag = False)
+        self.commPattern(minValue = minValue, InitFlag = False, MaintainFlag = False)
         tree = {
             "childDirection": self.childDirection,
             "parentDirection": self.parentDirection,
