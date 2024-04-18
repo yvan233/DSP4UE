@@ -244,34 +244,23 @@ def judge_finish(leaders_state, follower_state, leaders_target_state, target_fol
     else:
         return 0
 
-    
-def taskFunction(self:Task, id, nbrDirection, datalist):
-    uavid = int(id)-1
-    name = f'Uav{uavid}'
-    formation = formation_dict_9
-    uav = connect_airsim(name, formation["origin"][uavid])
-    uav.take_off(waited = True)
-    
+def consensus_formation(self:Task, uavid, uav:AirSimUavAgent, nbrDirection, origin_formation, target_formation):
     sptIter = 0
-    localLeaderNumMax = 3
+    localLeaderNumMax = 3 # 节点跟踪的邻居数量
+    location = DaspCommon.location
+    print_iter = 0  # 打印迭代器
+    finishFlag = 0  # 编队完成标志，1表示完成，0表示未完成
+    finishRound = -1 # 编队算法结束轮次
 
     state = uav.get_state()
-    self.sendDatatoGUI(state)
-    location = DaspCommon.location
     location["X"] = state['position'][0]
     location["Y"] = state['position'][1]
     location["Z"] = state['position'][2]
     topology, nbrDistance = self.updateTopology(location)
-
-
-    origin_formation = formation["origin"]
-    target_formation = formation["triangle"]
-    print_iter = 0
-
-    finishFlag = 0  # 编队完成标志，1表示完成，0表示未完成
-    finishRound = -1 # 编队算法结束轮次
+    nbrDirection = self.taskNbrDirection
 
     target_formation_index = milp_algorithm(origin_formation, target_formation)
+    real_target_formation = [target_formation[i] for i in target_formation_index]
     if target_formation_index[uavid] == 0:
         uav.move_by_velocity(1, 0, 0, duration = 100, yaw_mode=airsim.YawMode(True, 0))
         Q = 0
@@ -312,7 +301,6 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
                 finishRound = -1
 
             if print_iter % (topoMaintTime * Rate) == 0:
-                location = DaspCommon.location
                 location["X"] = state['position'][0]
                 location["Y"] = state['position'][1]
                 location["Z"] = state['position'][2]
@@ -404,26 +392,28 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
 
             # 节点的结束轮次为leader结束轮次-1
             if finishFlag:
-                index = nbrDirection.index(self.parentDirection)
-                parentRound = nbrFinieshRoundList[index]
-                if parentRound != -1:
-                    finishRound = parentRound - 1
+                if self.parentDirection in nbrDirection:
+                    index = nbrDirection.index(self.parentDirection)
+                    parentRound = nbrFinieshRoundList[index]
+                    if parentRound != -1:
+                        finishRound = parentRound - 1
+                    else:
+                        finishRound = -1
                 else:
-                    finishRound = -1
+                    pass #等待生成树重置
 
             uav.move_by_acceleration(ax, ay, az, duration = 1)
 
             if print_iter % (topoMaintTime * Rate) == 0:
                 # 每10次更新下拓扑
                 self.sendDatatoGUI([avoid_acc,[ax, ay, az], finishFlag, finishRound])
-                location = DaspCommon.location
                 location["X"] = state['position'][0]
                 location["Y"] = state['position'][1]
                 location["Z"] = state['position'][2]
                 topology, nbrDistance = self.updateTopology(location)
                 # 更新邻居方向
                 nbrDirection = self.taskNbrDirection
-                self.sendDatatoGUI(f"leaders_ids:{leaders_ids}, now_nbr_nodes:{topology}")
+                self.sendDatatoGUI(f"leaders_ids:{leaders_ids}, now_nbr_nodes:{topology}, now nbrDirection:{nbrDirection}")
                 if print_iter == SPTreeTime * Rate:
                     # 每50次更新下最小生成树
                     tree = self.updateSpanningTree(minValue = -Q)
@@ -435,7 +425,24 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
             # 控制频率
             if period < 1/Rate:
                 time.sleep(1/Rate - period) 
+    return real_target_formation
 
+def taskFunction(self:Task, id, nbrDirection, datalist):
+    uavid = int(id)-1
+    name = f'Uav{uavid}'
+    formation = formation_dict_9
+    origin_formation = formation["origin"]
+    target_formation = formation["triangle"]
+    target_formation2 = formation["rectangle"]
+    uav = connect_airsim(name, origin_formation[uavid])
+    uav.take_off(waited = True)
+
+    last_formation = consensus_formation(self, uavid, uav, nbrDirection, origin_formation, target_formation)
+
+    last_formation = consensus_formation(self, uavid, uav, nbrDirection, last_formation, target_formation2)
+
+    uav.hover()
+    
     self.sendDatatoGUI(f"uav{uavid} task finish!")
     return 0
 
