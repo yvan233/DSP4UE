@@ -4,7 +4,7 @@ from DASP.module import Task, DaspCommon
 from Agent.AirSimUavAgent import AirSimUavAgent
 import pulp as pl
 from scipy.optimize import linear_sum_assignment
-from Agent.formation.formation_dict import formation_dict_9
+from Agent.formation.formation_dict import formation_dict_9, formation_dict_8
 import airsim
 import numpy as np
 import random
@@ -14,6 +14,7 @@ import csv
 Rate = 10
 topoMaintTime = 1
 SPTreeTime= 5
+ExpendedTime = 3  #编队完成后持续时间
 UE_ip = "127.0.0.1"
 origin_geopoint = (116.16872381923261, 40.05405620434274,150)
 
@@ -192,8 +193,8 @@ def hungarian_algorithm(origin_formation, target_formation):
     # new_formation = np.array(target_formation)[col_ind]
     return col_index + 1
 
-def milp_algorithm(origin_formation, target_formation):
-    #混合整数线性规划,以使得队形切换时间最小
+def milp_algorithm(origin_formation, target_formation, origin_ids):
+    #混合整数线性规划,以使得队形切换时间最小 origin_ids为原始队形的id
     # adj_matrix = get_cost_matrix(origin_formation, target_formation)
     adj_matrix = np.linalg.norm(np.array(origin_formation)[:, None] - np.array(target_formation), axis=2)
     prob = pl.LpProblem("example", pl.LpMinimize)
@@ -215,11 +216,11 @@ def milp_algorithm(origin_formation, target_formation):
     prob.solve()
     print(t.name,t.varValue)
     # 每行元素选择的列
-    change_ids = [0 for i in size]
+    change_ids = {}
     for i in size:
         for j in size:
             if c[i][j].varValue == 1:
-                change_ids[i] = j
+                change_ids[origin_ids[i]] = j
     return change_ids
 
 def judge_finish(leaders_state, follower_state, leaders_target_state, target_follower_state):
@@ -244,7 +245,7 @@ def judge_finish(leaders_state, follower_state, leaders_target_state, target_fol
     else:
         return 0
 
-def consensus_formation(self:Task, uavid, uav:AirSimUavAgent, nbrDirection, origin_formation, target_formation):
+def consensus_formation(self:Task, uavid, uav:AirSimUavAgent, nbrDirection, origin_formation, target_formation, origin_ids):
     localLeaderNumMax = 3 # 节点跟踪的邻居数量
     location = DaspCommon.location
     print_iter = 0  # 打印迭代器
@@ -258,8 +259,8 @@ def consensus_formation(self:Task, uavid, uav:AirSimUavAgent, nbrDirection, orig
     topology, nbrDistance = self.updateTopology(location)
     nbrDirection = self.taskNbrDirection
 
-    target_formation_index = milp_algorithm(origin_formation, target_formation)
-    real_target_formation = [target_formation[i] for i in target_formation_index]
+    target_formation_index = milp_algorithm(origin_formation, target_formation, origin_ids)
+    real_target_formation = [target_formation[target_formation_index[i]] for i in target_formation_index]
     if target_formation_index[uavid] == 0:
         uav.move_by_velocity(1, 0, 0, duration = 100, yaw_mode=airsim.YawMode(True, 0))
         Q = 0
@@ -292,7 +293,7 @@ def consensus_formation(self:Task, uavid, uav:AirSimUavAgent, nbrDirection, orig
             # 当leader节点的finishFlag为1时，表示编队完成
             if finishFlag:
                 if finishRound == -1:
-                    finishRound = len(origin_formation) - 1  # 编队结束轮次为节点数
+                    finishRound = len(origin_formation) - 1 + ExpendedTime * Rate # 编队结束轮次为节点数
                 else:
                     finishRound -= 1
             # 如果结束中节点故障了，那么leader节点重置结束轮次
@@ -430,19 +431,56 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
     uavid = int(id)-1
     name = f'Uav{uavid}'
     formation = formation_dict_9
+    formation_8 = formation_dict_8
     origin_formation = formation["origin"]
     target_formation = formation["triangle"]
     target_formation2 = formation["rectangle"]
+    target_formation_81 = formation_8["triangle"]
+    target_formation_82 = formation_8["rectangle"]
     uav = connect_airsim(name, origin_formation[uavid])
     uav.take_off(waited = True)
 
-    last_formation = consensus_formation(self, uavid, uav, nbrDirection, origin_formation, target_formation)
+    origin_ids = [i for i in range(len(origin_formation))]
+    last_formation = consensus_formation(self, uavid, uav, nbrDirection, origin_formation, target_formation, origin_ids)
 
-    last_formation = consensus_formation(self, uavid, uav, nbrDirection, last_formation, target_formation2)
+    # last_formation = consensus_formation(self, uavid, uav, nbrDirection, last_formation, target_formation2)
 
-    uav.hover()
-    
-    self.sendDatatoGUI(f"uav{uavid} task finish!")
+    location = DaspCommon.location
+    deleteUavId = 1
+
+    if uavid == deleteUavId:
+        uav.move_by_acceleration(0, 0, 10, duration = 2)
+
+        print_iter = 0
+        location["X"] = 1000
+        location["Y"] = 1000
+        location["Z"] = 1000
+        topology, nbrDistance = self.updateTopology(location)
+        nbrDirection = self.taskNbrDirection
+        while True:
+            last_time = time.time()
+            if print_iter % (topoMaintTime * Rate) == 0:
+                topology, nbrDistance = self.updateTopology(location)
+                nbrDirection = self.taskNbrDirection
+                self.sendDatatoGUI(f"now_nbr_nodes:{topology}")
+            print_iter += 1
+            period = time.time() - last_time
+            # 控制频率
+            if period < 1/Rate:
+                time.sleep(1/Rate - period)
+    else:
+        uav.hover()
+        topology, nbrDistance = self.updateTopology(location)
+        nbrDirection = self.taskNbrDirection
+
+        del origin_ids[deleteUavId]
+        del last_formation[deleteUavId]
+        last_formation = consensus_formation(self, uavid, uav, nbrDirection, last_formation, target_formation_81, origin_ids)
+
+        uav.hover()
+        
+
+
     return 0
 
 
