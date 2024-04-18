@@ -4,7 +4,7 @@ from DASP.module import Task, DaspCommon
 from Agent.AirSimUavAgent import AirSimUavAgent
 import pulp as pl
 from scipy.optimize import linear_sum_assignment
-from Agent.formation.formation_dict import formation_dict_9, formation_dict_8, formation_dict_6
+from Agent.formation.formation_dict import formation_dict_9, formation_dict_8
 import airsim
 import numpy as np
 import random
@@ -431,12 +431,12 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
     uavid = int(id)-1
     name = f'Uav{uavid}'
     formation = formation_dict_9
+    formation_8 = formation_dict_8
     origin_formation = formation["origin"]
     target_formation = formation["triangle"]
     target_formation2 = formation["rectangle"]
-    target_formation_81 = formation_dict_8["triangle"]
-    target_formation_82 = formation_dict_8["rectangle"]
-    target_formation_6 = formation_dict_6["triangle"]
+    target_formation_81 = formation_8["triangle"]
+    target_formation_82 = formation_8["rectangle"]
     uav = connect_airsim(name, origin_formation[uavid])
     uav.take_off(waited = True)
 
@@ -446,8 +446,9 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
     # last_formation = consensus_formation(self, uavid, uav, nbrDirection, last_formation, target_formation2)
 
     location = DaspCommon.location
-    deleteUavIds = [1,3,5]
-    if uavid in deleteUavIds:
+    deleteUavId = 1  # 1, 2
+
+    if uavid == deleteUavId:
         uav.move_by_acceleration(0, 0, 10, duration = 2)
 
         print_iter = 0
@@ -471,11 +472,10 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
         uav.hover()
         topology, nbrDistance = self.updateTopology(location)
         nbrDirection = self.taskNbrDirection
-        deleteUavIds.sort()
-        for deleteUavId in reversed(deleteUavIds):
-            del origin_ids[deleteUavId]
-            del last_formation[deleteUavId]
-        last_formation = consensus_formation(self, uavid, uav, nbrDirection, last_formation, target_formation_6, origin_ids)
+
+        del origin_ids[deleteUavId]
+        del last_formation[deleteUavId]
+        last_formation = consensus_formation(self, uavid, uav, nbrDirection, last_formation, target_formation_81, origin_ids)
 
         uav.hover()
         
