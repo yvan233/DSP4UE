@@ -12,7 +12,8 @@ import copy
 import csv
 # 用户自定义函数区
 Rate = 10
-topoMaintTime = 2
+topoMaintTime = 1
+SPTreeTime= 5
 UE_ip = "127.0.0.1"
 origin_geopoint = (116.16872381923261, 40.05405620434274,150)
 
@@ -22,6 +23,7 @@ def connect_airsim(name, origin_pos):
     return uav
 
 def follower_control(leader_state, follower_state, target_leader_state, target_follower_state, avoid_vel):
+    # folloer速度跟随控制
     Kp = 1.0
     Kp_avoid = 3.0 #避障系数
     v_max = 2.0 #最大速度
@@ -40,6 +42,7 @@ def follower_control(leader_state, follower_state, target_leader_state, target_f
     return vx, vy, vz
 
 def follower_control_acc(leader_state, follower_state, target_leader_state, target_follower_state, avoid_accel):
+    # folloer加速度跟随控制
     Kp = 1.0
     gama = (4.0 / Kp) ** 0.5
     Kp_avoid = 2.0 #避障系数
@@ -62,6 +65,7 @@ def follower_control_acc(leader_state, follower_state, target_leader_state, targ
     return ax, ay, az
 
 def follower_consensus_control_acc(leaders_state, follower_state, leaders_target_state, target_follower_state, avoid_accel):
+    # folloer共识算法加速度跟随控制
     Kp = 1.0
     gama = (4.0 / Kp) ** 0.5
     Kp_avoid = 3 #避障系数
@@ -91,6 +95,7 @@ def follower_consensus_control_acc(leaders_state, follower_state, leaders_target
     return ax, ay, az
 
 def follower_consensus_control(leaders_state, follower_state, leaders_target_state, target_follower_state, avoid_vel):
+    # folloer共识算法速度跟随控制
     Kp = 1.0
     Kp_avoid = 3 #避障系数
     v_max = 2.0 #最大速度
@@ -116,6 +121,7 @@ def follower_consensus_control(leaders_state, follower_state, leaders_target_sta
     return vx, vy, vz
 
 def avoid_control(uav_state):
+    # 计算所有节点的避障向量
     aid_vec1 = [1, 0, 0]
     aid_vec2 = [0, 1, 0]
     avoid_radius = 2 # 避障半径
@@ -143,6 +149,7 @@ def avoid_control(uav_state):
     # pass
 
 def avoid_control_node(uav_state):
+    # 计算本节点的避障向量
     aid_vec1 = [1, 0, 0]
     aid_vec2 = [0, 1, 0]
     avoid_radius = 2.5 # 避障半径
@@ -168,6 +175,7 @@ def avoid_control_node(uav_state):
     return avoid_vel_node.tolist()
 
 def get_cost_matrix(origin_formation, target_formation):
+    # 获取两个队形的距离矩阵
     origin_formation = np.array(origin_formation)
     origin_formation = (origin_formation - origin_formation[0, :])[1:]
     target_formation = np.array(target_formation)
@@ -175,18 +183,17 @@ def get_cost_matrix(origin_formation, target_formation):
     cost_matrix = np.linalg.norm(origin_formation[:, None] - target_formation, axis=2)
     return cost_matrix
 
-    #匈牙利算法，以使得队形切换代价最小
+    
 def hungarian_algorithm(origin_formation, target_formation):
-    # 计算两个队形的距离矩阵
+    #匈牙利算法，以使得队形切换代价最小
     adj_matrix = get_cost_matrix(origin_formation, target_formation)
     row_index, col_index = linear_sum_assignment(adj_matrix)
     cost_sum = adj_matrix[row_index, col_index].sum()
     # new_formation = np.array(target_formation)[col_ind]
     return col_index + 1
 
-    #混合整数线性规划,以使得队形切换时间最小
 def milp_algorithm(origin_formation, target_formation):
-
+    #混合整数线性规划,以使得队形切换时间最小
     # adj_matrix = get_cost_matrix(origin_formation, target_formation)
     adj_matrix = np.linalg.norm(np.array(origin_formation)[:, None] - np.array(target_formation), axis=2)
     prob = pl.LpProblem("example", pl.LpMinimize)
@@ -215,8 +222,29 @@ def milp_algorithm(origin_formation, target_formation):
                 change_ids[i] = j
     return change_ids
 
+def judge_finish(leaders_state, follower_state, leaders_target_state, target_follower_state):
+    dx = 0
+    dy = 0
+    dz = 0
+    threshold = 0.01
+    z_threshold = 0.1
 
-#  
+    for leader_state, target_leader_state in zip(leaders_state, leaders_target_state):
+        dx += (leader_state['position'][0] - follower_state['position'][0] - target_leader_state[0] + target_follower_state[0]) ** 2\
+            +  (leader_state['linear_velocity'][0] - follower_state['linear_velocity'][0]) ** 2
+        dy += (leader_state['position'][1] - follower_state['position'][1] - target_leader_state[1] + target_follower_state[1]) ** 2\
+            +  (leader_state['linear_velocity'][1] - follower_state['linear_velocity'][1]) ** 2
+        dz += (leader_state['position'][2] - follower_state['position'][2] - target_leader_state[2] + target_follower_state[2]) ** 2\
+            +  (leader_state['linear_velocity'][2] - follower_state['linear_velocity'][2]) ** 2
+    dx = dx / len(leaders_state)
+    dy = dy / len(leaders_state)
+    dz = dz / len(leaders_state)
+    if dx < threshold and dy < threshold and dz < z_threshold:
+        return 1
+    else:
+        return 0
+
+    
 def taskFunction(self:Task, id, nbrDirection, datalist):
     uavid = int(id)-1
     name = f'Uav{uavid}'
@@ -240,59 +268,80 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
     target_formation = formation["triangle"]
     print_iter = 0
 
+    finishFlag = 0  # 编队完成标志，1表示完成，0表示未完成
+    finishRound = -1 # 编队算法结束轮次
+
     target_formation_index = milp_algorithm(origin_formation, target_formation)
     if target_formation_index[uavid] == 0:
-    # if uavid == 0:
-        # 速度控制，会有静差
-        uav.move_by_velocity(2, 0, 0, duration = 100, yaw_mode=airsim.YawMode(True, 0))
+        uav.move_by_velocity(1, 0, 0, duration = 100, yaw_mode=airsim.YawMode(True, 0))
+        Q = 0
+        target_leader_state = target_formation[0]
+        tree = self.updateSpanningTree(minValue = -Q)
         while True:
+            if finishRound == 0:
+                break
             last_time = time.time()
             state = uav.get_state()
-            Q = 0
-            target_leader_state = target_formation[0]
-            sendmessage = [Q, target_leader_state, state]
+
+            # 传给邻居的信息包括自身的q值，目标队形的自身位置，当前自身状态
+            sendmessage = [Q, target_leader_state, state, finishFlag, finishRound] 
             nbrMessage = self.transmitData(nbrDirection,[sendmessage for _ in range(len(nbrDirection))])  
-            nbrDirection, nbrData = nbrMessage               
-            # uav.move_to_position(0, 0, -3, velocity=1)
+            nbrDirection, nbrData = nbrMessage     
+
+            # 邻居结束标志
+            nbrFinishFlagList = [ele[3] for ele in nbrData]
+            # 只有当自己的子节点都完成编队时，自己才能完成编队
+            finishFlag = 1
+            if not self.childDirection:
+                pass
+            else:
+                for direction,nbrFinishFlag in zip(nbrDirection,nbrFinishFlagList):
+                    if direction in self.childDirection:
+                        if nbrFinishFlag == 0:
+                            finishFlag = 0
+                            break
+            
+            # 当leader节点的finishFlag为1时，表示编队完成
+            if finishFlag:
+                if finishRound == -1:
+                    finishRound = len(origin_formation) - 1  # 编队结束轮次为节点数
+                else:
+                    finishRound -= 1
+            # 如果结束中节点故障了，那么leader节点重置结束轮次
+            else:
+                finishRound = -1
+
             if print_iter % (topoMaintTime * Rate) == 0:
-                print_iter = 0
                 location = DaspCommon.location
                 location["X"] = state['position'][0]
                 location["Y"] = state['position'][1]
                 location["Z"] = state['position'][2]
                 topology, nbrDistance = self.updateTopology(location)
                 nbrDirection = self.taskNbrDirection
-                self.sendDatatoGUI(f"now_nbr_nodes:{topology}")
+                self.sendDatatoGUI(f"now_nbr_nodes:{topology}, finishFlag:{finishFlag}, finishRound:{finishRound}")
+                if print_iter == SPTreeTime * Rate:
+                    tree = self.updateSpanningTree(minValue = -Q)
+                    self.sendDatatoGUI(tree)
+                    print_iter = 0                
             print_iter += 1
             period = time.time() - last_time
             # 控制频率
             if period < 1/Rate:
                 time.sleep(1/Rate - period) 
-
     else:
-        
-        # target_formation_index = hungarian_algorithm(origin_formation, target_formation)
-        # target_formation_index = milp_algorithm(origin_formation, target_formation)
-        # leader_id = int(self.leader)-1
         target_leader_state = target_formation[0]
         target_follower_state = target_formation[target_formation_index[uavid]] 
         Q = - np.linalg.norm(np.array(target_leader_state) - np.array(target_follower_state))
+        tree = self.updateSpanningTree(minValue = -Q)
         self.sendDatatoGUI(f"target_follower_state:{target_follower_state}")
-
-        # smooth velocity
-        vx_last, vy_last, vz_last = 0, 0, 0
-        alpha = 0.8
         while True:
+            if finishRound == 0:
+                break
             last_time = time.time()
             state = uav.get_state()
-            sendmessage = [Q, target_follower_state, state]
+            sendmessage = [Q, target_follower_state, state, finishFlag, finishRound] 
             nbrMessage = self.transmitData(nbrDirection,[sendmessage for _ in range(len(nbrDirection))])  
             nbrDirection, nbrData = nbrMessage  
-            # 
-            # 取leader的数据
-            # leader_state = nbrData[0][0]
-            # avoid_vel_dict = nbrData[0][1]
-            # avoid_vel = avoid_vel_dict[name]
             leaders_state = []
             leaders_target_state = []
             nbrQ = []
@@ -301,6 +350,9 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
             nbrState = []
             leaders_ids= []
             allState = []
+
+            nbrFinishFlagList = [ele[3] for ele in nbrData]
+            nbrFinieshRoundList = [ele[4] for ele in nbrData]
             # 得到邻居数据
             for ele in nbrData:
                 if ele:
@@ -335,31 +387,56 @@ def taskFunction(self:Task, id, nbrDirection, datalist):
             follower_state = state
             # 计算偏移量
             ax, ay, az = follower_consensus_control_acc(leaders_state, follower_state, leaders_target_state, target_follower_state, avoid_acc)
+            
+            # 判断编队是否完成
+            finishFlag = judge_finish(leaders_state, follower_state, leaders_target_state, target_follower_state)
+
+            # 只有当自己的子节点都完成编队时，自己才能完成编队
+            if finishFlag:
+                if not self.childDirection:
+                    finishFlag = 1
+                else:
+                    for direction,nbrFinishFlag in zip(nbrDirection,nbrFinishFlagList):
+                        if direction in self.childDirection:
+                            if nbrFinishFlag == 0:
+                                finishFlag = 0
+                                break
+
+            # 节点的结束轮次为leader结束轮次-1
+            if finishFlag:
+                index = nbrDirection.index(self.parentDirection)
+                parentRound = nbrFinieshRoundList[index]
+                if parentRound != -1:
+                    finishRound = parentRound - 1
+                else:
+                    finishRound = -1
 
             uav.move_by_acceleration(ax, ay, az, duration = 1)
 
             if print_iter % (topoMaintTime * Rate) == 0:
                 # 每10次更新下拓扑
-                self.sendDatatoGUI([avoid_acc,[ax, ay, az]])
-                print_iter = 0
+                self.sendDatatoGUI([avoid_acc,[ax, ay, az], finishFlag, finishRound])
                 location = DaspCommon.location
                 location["X"] = state['position'][0]
                 location["Y"] = state['position'][1]
                 location["Z"] = state['position'][2]
                 topology, nbrDistance = self.updateTopology(location)
+                # 更新邻居方向
                 nbrDirection = self.taskNbrDirection
                 self.sendDatatoGUI(f"leaders_ids:{leaders_ids}, now_nbr_nodes:{topology}")
+                if print_iter == SPTreeTime * Rate:
+                    # 每50次更新下最小生成树
+                    tree = self.updateSpanningTree(minValue = -Q)
+                    self.sendDatatoGUI(tree)
+                    print_iter = 0
                 uav.move_by_acceleration(ax, ay, az, duration = 1)
-            print_iter += 1
-
-            
+            print_iter += 1            
             period = time.time() - last_time
             # 控制频率
             if period < 1/Rate:
                 time.sleep(1/Rate - period) 
-            # # 将vx,vy,vz存储到csv文件中
 
-    self.sendDatatoGUI({name:uav.get_state()})
+    self.sendDatatoGUI(f"uav{uavid} task finish!")
     return 0
 
 
