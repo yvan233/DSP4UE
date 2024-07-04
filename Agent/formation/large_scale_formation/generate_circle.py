@@ -12,7 +12,7 @@ def generate_circle_points(leader_point = [0,0,0], num_points = 3, direction = [
         num_points: 点的数量。
     Returns:
         points: 所有节点平面坐标。
-    """
+    """ 
 
     # 圆心角
     theta = 2*np.pi / num_points
@@ -21,8 +21,10 @@ def generate_circle_points(leader_point = [0,0,0], num_points = 3, direction = [
     unit_vector = np.array(direction) / np.linalg.norm(direction)
     O = leader_point - unit_vector * r
 
+    # leader节点的角度
+    alpha = np.arctan2(unit_vector[1],unit_vector[0])
     # 生成等距的圆心角
-    theta_list = np.linspace(0, 2 * np.pi, num_points, endpoint=False)
+    theta_list = np.linspace(alpha, 2 * np.pi + alpha, num_points, endpoint=False)
 
     # 生成圆形坐标
     x = r * np.cos(theta_list) + O[0]
@@ -32,7 +34,7 @@ def generate_circle_points(leader_point = [0,0,0], num_points = 3, direction = [
     return np.stack([x, y, z], axis=1)
 
 if __name__ == "__main__":
-    points = generate_circle_points(leader_point = [0,0,0], num_points = 15)
+    points = generate_circle_points(leader_point = [0,0,0], num_points = 10, direction = [-1,1,0])
     plot_points = np.array(points)
 
     # 创建三维画布

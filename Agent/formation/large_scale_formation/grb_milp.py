@@ -7,6 +7,7 @@ from Agent.formation.formation_dict import formation_dict_9, formation_dict_8, f
 import random
 
 from Agent.formation.large_scale_formation.generate_tri import generate_triangle_points
+from Agent.formation.large_scale_formation.generate_des_tri import generate_dense_triangle_points
 from Agent.formation.large_scale_formation.generate_circle import generate_circle_points
 
 # 导入队形
@@ -15,10 +16,12 @@ from Agent.formation.large_scale_formation.generate_circle import generate_circl
 # target_formation = formation["triangle"]
 
 # 生成指定队形
-origin_formation = generate_circle_points(leader_point = [0,0,0], num_points = 51, direction= [1,0,0], spacing= 3)
+# origin_formation = generate_circle_points(leader_point = [0,0,0], num_points = 11, direction= [1,0,0], spacing= 3)
 # target_formation = generate_triangle_points(leader_point = [0,0,0], num_points = 100, direction= [1,0,0], spacing= 3)
 
-target_formation = generate_circle_points(leader_point = [0,0,0], num_points = 50, direction= [1,0,0], spacing= 3)
+origin_formation = generate_dense_triangle_points(leader_point = [0,0,0], num_points = 21, direction= [1,0,0], spacing= 3)
+# target_formation = generate_circle_points(leader_point = [0,0,0], num_points = 20, direction= [1,0,0], spacing= 3)
+target_formation = generate_dense_triangle_points(leader_point = [0,0,0], num_points = 20, direction= [1,0,0], spacing= 3)
 origin_formation = np.delete(origin_formation,1,0)
 
 # 随机生成队形
