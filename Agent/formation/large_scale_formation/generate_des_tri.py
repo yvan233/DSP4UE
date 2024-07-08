@@ -14,20 +14,15 @@ def generate_dense_triangle_points(leader_point = [0,0,0], num_points = 3, direc
     Returns:
         points: 所有节点平面坐标。
     """
-
-    
-
-    length = spacing
-
     leader_point = np.array(leader_point)
     unit_vector = np.array(direction) / np.linalg.norm(direction)
     zvec = np.array([0,0,1])
     compvec = np.cross(unit_vector, zvec)
 
-    midpoint = leader_point - unit_vector * length * np.sin(theta*np.pi/180)
+    midpoint = leader_point - unit_vector * spacing * np.sin(theta*np.pi/180)
 
-    b = midpoint + length * np.cos(theta*np.pi/180) * compvec
-    c = midpoint - length * np.cos(theta*np.pi/180) * compvec
+    b = midpoint + spacing * np.cos(theta*np.pi/180) * compvec
+    c = midpoint - spacing * np.cos(theta*np.pi/180) * compvec
     points = [leader_point, b, c]
     unit_b = b - leader_point
     unit_c = c - leader_point

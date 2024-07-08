@@ -9,6 +9,7 @@ import random
 from Agent.formation.large_scale_formation.generate_tri import generate_triangle_points
 from Agent.formation.large_scale_formation.generate_des_tri import generate_dense_triangle_points
 from Agent.formation.large_scale_formation.generate_circle import generate_circle_points
+from Agent.formation.large_scale_formation.generate_des_rec import generate_dense_rectangle_points
 
 # 导入队形
 # formation = formation_dict_9
@@ -19,10 +20,19 @@ from Agent.formation.large_scale_formation.generate_circle import generate_circl
 # origin_formation = generate_circle_points(leader_point = [0,0,0], num_points = 11, direction= [1,0,0], spacing= 3)
 # target_formation = generate_triangle_points(leader_point = [0,0,0], num_points = 100, direction= [1,0,0], spacing= 3)
 
-origin_formation = generate_dense_triangle_points(leader_point = [0,0,0], num_points = 21, direction= [1,0,0], spacing= 3)
-# target_formation = generate_circle_points(leader_point = [0,0,0], num_points = 20, direction= [1,0,0], spacing= 3)
-target_formation = generate_dense_triangle_points(leader_point = [0,0,0], num_points = 20, direction= [1,0,0], spacing= 3)
-origin_formation = np.delete(origin_formation,1,0)
+
+# 不同队形切换
+origin_formation = generate_dense_rectangle_points(leader_point = [0,0,0], num_points = 25, direction= [0,1,0], spacing= 3)
+target_formation = generate_dense_triangle_points(leader_point = [0,0,0], num_points = 25, direction= [0,1,0], spacing= 3)
+
+
+# 队形修复测试
+# origin_formation = generate_dense_triangle_points(leader_point = [0,0,0], num_points = 35, direction= [1,0,0], spacing= 3)
+# # target_formation = generate_circle_points(leader_point = [0,0,0], num_points = 20, direction= [1,0,0], spacing= 3)
+# target_formation = generate_dense_triangle_points(leader_point = [0,0,0], num_points = 33, direction= [1,0,0], spacing= 3)
+# origin_formation = np.delete(origin_formation,1,0)
+# origin_formation = np.delete(origin_formation,15,0)
+
 
 # 随机生成队形
 # size = 10
@@ -48,7 +58,7 @@ m.addConstrs((x.sum('*', j) == 1 for j in range(size)), 'Constraint_of_job')
 m.addConstrs((x[i,j]*adj_matrix_dict[i,j] <= t for i in range(size) for j in range(size)), 'Constraint_of_Bound')
 
 k = 2*size
-m.setObjective(x.prod(adj_matrix_dict)+k*t,GRB.MINIMIZE)
+m.setObjective(x.prod(adj_matrix_dict),GRB.MINIMIZE)
 # m.setObjective(x.prod(adj_matrix_dict),GRB.MINIMIZE)
 # m.setObjective(t,GRB.MINIMIZE)
 # m.setObjective(x.prod(adj_matrix_dict)+t,GRB.MINIMIZE)
